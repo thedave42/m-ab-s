@@ -17,6 +17,9 @@ jobs:
         shell: cmd
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Run build batchfile
         run: |
-          media-autobuild_suite.cmd
+          media-autobuild_suite.bat
