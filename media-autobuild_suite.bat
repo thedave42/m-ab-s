@@ -21,13 +21,13 @@ rem    You should have received a copy of the GNU General Public License
 rem    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 rem -----------------------------------------------------------------------------
 
-color 70
+rem color 70
 title media-autobuild_suite
 
 setlocal
 chcp 65001 >nul 2>&1
 cd /d "%~dp0"
-set "TERM=xterm-256color"
+rem set "TERM=xterm-256color"
 setlocal
 set instdir=%CD%
 
