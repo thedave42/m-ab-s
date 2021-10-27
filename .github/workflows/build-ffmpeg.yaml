@@ -8,12 +8,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  buildt:
+  build-ffmpeg:
     if: github.actor != 'dependabot[bot]'
     
     runs-on: windows-2019
+    defaults:
+      shell: cmd
 
     steps:
       - name: Run build batchfile
         run: |
-          cmd media-autobuild_suite.bat
+          media-autobuild_suite.bat
