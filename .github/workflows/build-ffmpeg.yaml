@@ -1,0 +1,23 @@
+name: Build ffmpeg
+
+on:
+  workflow_dispatch:
+
+concurrency: 
+  group: build-group-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  buildt:
+    if: github.actor != 'dependabot[bot]'
+    
+    runs-on: windows-2019
+
+    strategy:
+      matrix:
+        node-version: ['14']
+
+    steps:
+      - name: Run build batchfile
+        run: |
+          media-autobuild_suite.bat
