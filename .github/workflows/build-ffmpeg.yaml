@@ -13,7 +13,8 @@ jobs:
     
     runs-on: windows-2019
     defaults:
-      shell: cmd
+      run:
+        shell: cmd
 
     steps:
       - name: Run build batchfile
