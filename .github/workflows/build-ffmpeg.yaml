@@ -13,10 +13,6 @@ jobs:
     
     runs-on: windows-2019
 
-    strategy:
-      matrix:
-        node-version: ['14']
-
     steps:
       - name: Run build batchfile
         run: |
