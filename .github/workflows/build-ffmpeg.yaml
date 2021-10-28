@@ -56,7 +56,7 @@ jobs:
         if: always()
         run: |
           tree >./dir-tree.txt
-          dir /s ./>dir-files.txt
+          dir -R ./>dir-files.txt
 
       - name: Upload dir list artifacts
         uses: actions/upload-artifact@v2
