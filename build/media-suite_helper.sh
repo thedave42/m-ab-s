@@ -209,8 +209,13 @@ vcs_fetch() (
 # do_mabs_clone "$vcsURL" "$vcsFolder" "$ref"
 # For internal use for fallback links
 do_mabs_clone() {
-    vcs_test_remote "$1" &&
-        log -q git.clone vcs_clone "$1" "$2" "$3"
+    {
+        vcs_test_remote "$1" &&
+            log -qe git.clone vcs_clone "$1" "$2" "$3"
+    } || {
+        vcs_test_remote "https://gitlab.com/m-ab-s/${1##*/}" &&
+            log -qe git.clone vcs_clone "https://gitlab.com/m-ab-s/${1##*/}" "$2" "$3"
+    }
     check_valid_vcs "$2-git"
 }
 
