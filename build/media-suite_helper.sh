@@ -285,7 +285,8 @@ do_vcs() {
             echo "Try again later or <Enter> to continue"
             do_prompt "if you're sure nothing depends on it."
             unset_extra_script
-            return 1
+            exit 1
+            return
         fi
         touch "$vcsFolder-git"/recently_{updated,checked}
     fi
@@ -502,6 +503,7 @@ do_wget() {
                 "<Ctrl+c> to cancel build or <Enter> to continue"
             do_prompt "if you're sure nothing depends on it."
             rm -f "$temp_file"
+            exit 1
             return 1
         fi
     done
@@ -1815,8 +1817,9 @@ do_pacman_remove() (
 
 do_prompt() {
     # from http://superuser.com/a/608509
-    while read -r -s -e -t 0.1; do :; done
-    read -r -p "$1" ret
+    #while read -r -s -e -t 0.1; do :; done
+    #read -r -p "$1" ret
+    echo "$1"
 }
 
 do_autoreconf() {
