@@ -48,7 +48,6 @@ jobs:
           tree >./pre-dir-tree.txt
           dir /S >./pre-dir-files.txt
           dir /S d: >./pre-d-files.txt
-          dir /S c: >./pre-c-files.txt
         shell: cmd
 
       - name: Run build batchfile
@@ -82,4 +81,4 @@ jobs:
             ./*-dir-tree.txt
             ./*-dir-files.txt            
             ./*-d-files.txt
-            ./*-c-files.txt
+
