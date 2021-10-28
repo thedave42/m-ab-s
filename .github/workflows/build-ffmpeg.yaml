@@ -17,6 +17,7 @@ jobs:
       - name: Install nVidia CUDA toolkit
         uses: Jimver/cuda-toolkit@master
         with:
+          method: 'network'
           cuda: '11.1.1'
 
       - name: Checkout code
