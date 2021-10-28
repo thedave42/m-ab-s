@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Install nVidia CUDA toolkit
-        uses: Jimver/cuda-toolkit@master
+        uses: Jimver/cuda-toolkit@6c431511cdbaef1174130412c0a245a6c205f883
         with:
           method: 'network'
           cuda: '11.1.1'
@@ -27,8 +27,9 @@ jobs:
         run: |
           ./media-autobuild_suite.bat
 
-      - name: Upload build artifacts
+      - name: Upload build artifacts on success
         uses: actions/upload-artifact@v2
+        #if: success()
         with:
           name: ffmpeg
           path: |
