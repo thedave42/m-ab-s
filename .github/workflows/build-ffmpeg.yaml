@@ -70,18 +70,3 @@ jobs:
           path: |
             ./dir-tree.txt
             ./dir-files.txt
-
-      - name: Store build cache
-        uses: actions/cache@v2
-        if: always()
-        with:
-          path: |
-            ./build/*-git
-            ./local64/*
-            !./local64/bin
-            !./local64/bin-audio
-            !./local64/bin-global
-            !./local64/bin-video
-          key: m-ab-s
-          restore-keys: |
-            m-ab-s
