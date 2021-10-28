@@ -34,17 +34,9 @@ jobs:
         run: |
           ./media-autobuild_suite.bat
 
-      - name: Store build cache
-        uses: actions/cache@v2
-        if: success() || failure()
-        with:
-          path: |
-            ./build/*-git
-          key: m-ab-s-${{ github.ref }}
-          
       - name: Upload build artifacts on success
         uses: actions/upload-artifact@v2
-        #if: success()
+        if: success()
         with:
           name: ffmpeg
           path: |
@@ -53,4 +45,10 @@ jobs:
             ./local64/bin-global
             ./local64/bin-video
 
-
+      - name: Store build cache
+        uses: actions/cache@v2
+        if: always()
+        with:
+          path: |
+            ./build/*-git
+          key: m-ab-s-${{ github.ref }}
