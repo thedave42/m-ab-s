@@ -45,12 +45,27 @@ jobs:
         uses: actions/upload-artifact@v2
         if: success()
         with:
-          name: ffmpeg
+          name: ffmpeg-bin
           path: |
             ./local64/bin
             ./local64/bin-audio
             ./local64/bin-global
             ./local64/bin-video
+
+      - name: Create dirlist snapshot
+        if: always()
+        run: |
+          ./tree >dir-tree.txt
+          ./dir /s >dir-files.txt
+
+      - name: Upload dir list artifacts
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: dir-list
+          path: |
+            ./dir-tree.txt
+            ./dir-files.txt
 
       - name: Store build cache
         uses: actions/cache@v2
