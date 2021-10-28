@@ -41,6 +41,13 @@ jobs:
       - name: Remove CUDA Installer
         run: |
           rm -f ./cuda*.exe
+          
+      - name: Create pre dirlist snapshot
+        if: always()
+        run: |
+          tree >./pre-dir-tree.txt
+          dir -R >./pre-dir-files.txt
+          dir -R d: >./pre-d-files.txt
 
       - name: Run build batchfile
         run: |
@@ -57,11 +64,11 @@ jobs:
             ./local64/bin-global
             ./local64/bin-video
 
-      - name: Create dirlist snapshot
+      - name: Create post dirlist snapshot
         if: always()
         run: |
-          tree >./dir-tree.txt
-          dir -R >./dir-files.txt
+          tree >./post-dir-tree.txt
+          dir -R >./post-dir-files.txt
 
       - name: Upload dir list artifacts
         uses: actions/upload-artifact@v2
@@ -69,5 +76,6 @@ jobs:
         with:
           name: dir-list
           path: |
-            ./dir-tree.txt
-            ./dir-files.txt
+            ./*-dir-tree.txt
+            ./*-dir-files.txt            
+            ./*-d-files.txt
