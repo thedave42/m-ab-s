@@ -23,7 +23,13 @@ jobs:
           path: |
             ./build/*-git
             ./local64/*
+            !./local64/bin
+            !./local64/bin-audio
+            !./local64/bin-global
+            !./local64/bin-video
           key: m-ab-s-${{ github.ref }}
+          restore-keys: |
+            m-ab-s-
 
       - name: Install nVidia CUDA toolkit
         uses: Jimver/cuda-toolkit@6c431511cdbaef1174130412c0a245a6c205f883
@@ -58,3 +64,5 @@ jobs:
             !./local64/bin-global
             !./local64/bin-video
           key: m-ab-s-${{ github.ref }}
+          restore-keys: |
+            m-ab-s-
