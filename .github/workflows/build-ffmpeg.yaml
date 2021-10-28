@@ -22,6 +22,7 @@ jobs:
         with:
           path: |
             ./build/*-git
+            ./local64/*
           key: m-ab-s-${{ github.ref }}
 
       - name: Install nVidia CUDA toolkit
