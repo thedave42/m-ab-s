@@ -46,8 +46,9 @@ jobs:
         if: always()
         run: |
           tree >./pre-dir-tree.txt
-          dir -R >./pre-dir-files.txt
-          dir -R d: >./pre-d-files.txt
+          dir /S >./pre-dir-files.txt
+          dir /S d: >./pre-d-files.txt
+        shell: cmd
 
       - name: Run build batchfile
         run: |
@@ -68,7 +69,8 @@ jobs:
         if: always()
         run: |
           tree >./post-dir-tree.txt
-          dir -R >./post-dir-files.txt
+          dir /S >./post-dir-files.txt
+        shell: cmd
 
       - name: Upload dir list artifacts
         uses: actions/upload-artifact@v2
