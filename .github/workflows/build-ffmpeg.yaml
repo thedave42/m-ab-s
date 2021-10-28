@@ -27,9 +27,9 @@ jobs:
             !./local64/bin-audio
             !./local64/bin-global
             !./local64/bin-video
-          key: m-ab-s-${{ github.ref }}
+          key: m-ab-s
           restore-keys: |
-            m-ab-s-
+            m-ab-s
 
       - name: Install nVidia CUDA toolkit
         uses: Jimver/cuda-toolkit@6c431511cdbaef1174130412c0a245a6c205f883
@@ -55,8 +55,8 @@ jobs:
       - name: Create dirlist snapshot
         if: always()
         run: |
-          ./tree >dir-tree.txt
-          ./dir /s >dir-files.txt
+          tree >./dir-tree.txt
+          dir /s ./>dir-files.txt
 
       - name: Upload dir list artifacts
         uses: actions/upload-artifact@v2
@@ -78,6 +78,6 @@ jobs:
             !./local64/bin-audio
             !./local64/bin-global
             !./local64/bin-video
-          key: m-ab-s-${{ github.ref }}
+          key: m-ab-s
           restore-keys: |
-            m-ab-s-
+            m-ab-s
