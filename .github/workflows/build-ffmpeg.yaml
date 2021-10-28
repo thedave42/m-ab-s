@@ -17,18 +17,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      #- name: Install nVidia CUDA toolkit
-      #  uses: Jimver/cuda-toolkit@6c431511cdbaef1174130412c0a245a6c205f883
-      #  with:
-      #    method: 'network'
-      #    cuda: '11.1.1'
-
       - name: Restore build cache
         uses: actions/cache@v2
         with:
           path: |
             ./build/*-git
           key: m-ab-s-${{ github.ref }}
+
+      - name: Install nVidia CUDA toolkit
+        uses: Jimver/cuda-toolkit@6c431511cdbaef1174130412c0a245a6c205f883
+        with:
+          method: 'network'
+          cuda: '11.1.1'
 
       - name: Run build batchfile
         run: |
