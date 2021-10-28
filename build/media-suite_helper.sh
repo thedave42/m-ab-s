@@ -220,7 +220,7 @@ do_mabs_clone() {
         vcs_test_remote "https://gitlab.com/m-ab-s/${1##*/}" &&
             log -qe git.clone vcs_clone "https://gitlab.com/m-ab-s/${1##*/}" "$2" "$3"
     }
-    check_valid_vcs "$2-git"
+    #check_valid_vcs "$2-git"
 }
 
 # get source from VCS
