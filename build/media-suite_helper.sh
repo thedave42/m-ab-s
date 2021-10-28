@@ -214,7 +214,7 @@ vcs_fetch() (
 # For internal use for fallback links
 do_mabs_clone() {
     {
-        vcs_test_remote "$1" &&
+        #vcs_test_remote "$1" &&
             log -qe git.clone vcs_clone "$1" "$2" "$3"
     } || {
         vcs_test_remote "https://gitlab.com/m-ab-s/${1##*/}" &&
