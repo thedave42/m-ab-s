@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          path: '../m-ab-s'
 
       #- name: Install nVidia CUDA toolkit
       #  uses: Jimver/cuda-toolkit@6c431511cdbaef1174130412c0a245a6c205f883
