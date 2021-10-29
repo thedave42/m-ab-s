@@ -18,6 +18,7 @@ update_suite.sh
 !build/*options.txt
 !build/patches/
 !build/extras/
+!build/x264-git
 /build/post_suite.sh
 
 ## VS Code
