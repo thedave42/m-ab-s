@@ -101,9 +101,9 @@ do if %%f lss 4 (
 set build=%instdir%\build
 if not exist %build% mkdir %build%
 
-set msyspackages=asciidoc autoconf automake-wrapper autogen base bison diffstat dos2unix filesystem help2man ^
+set msyspackages=asciidoc autoconf-wrapper automake-wrapper autogen base bison diffstat dos2unix filesystem help2man ^
 intltool libtool patch python xmlto make zip unzip git subversion wget p7zip man-db ^
-gperf winpty texinfo gyp-git doxygen autoconf-archive itstool ruby mintty flex
+gperf winpty texinfo gyp-git doxygen autoconf-archive itstool ruby mintty flex msys2-runtime
 
 set mingwpackages=cmake dlfcn libpng gcc nasm pcre tools-git yasm ninja pkgconf meson ccache jq ^
 clang
@@ -128,7 +128,7 @@ set ffmpeg_options_full=chromaprint decklink frei0r libbs2b libcaca ^
 libcdio libflite libfribidi libgme libilbc libsvthevc ^
 libsvtvp9 libkvazaar libmodplug librist librtmp librubberband #libssh ^
 libtesseract libxavs libzmq libzvbi openal libcodec2 ladspa #vapoursynth #liblensfun ^
-libglslang vulkan libdavs2 libxavs2 libuavs3d
+libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl
 
 :: options also available with the suite that add shared dependencies
 set ffmpeg_options_full_shared=opencl opengl cuda-nvcc libnpp libopenh264
@@ -147,9 +147,9 @@ set mpv_options_full=dvdnav cdda #egl-angle #html-build ^
 
 set iniOptions=arch license2 vpx2 x2643 x2652 other265 flac fdkaac mediainfo ^
 soxB ffmpegB2 ffmpegUpdate ffmpegChoice mp4box rtmpdump mplayer2 mpv cores deleteSource ^
-strip pack logging bmx standalone updateSuite aom faac exhale ffmbc curl cyanrip2 redshift ^
-rav1e ripgrep dav1d libavif vvc jq dssim avs2 timeStamp noMintty ccache svthevc svtav1 svtvp9 xvc ^
-jo vlc CC jpegxl
+strip pack logging bmx standalone updateSuite aom faac exhale ffmbc curl cyanrip2 ^
+rav1e ripgrep dav1d libavif vvc uvg266 jq dssim avs2 timeStamp noMintty ccache ^
+svthevc svtav1 svtvp9 xvc jo vlc CC jpegxl autouploadlogs vvenc vvdec
 
 set deleteIni=0
 set ini=%build%\media-autobuild_suite.ini
@@ -511,7 +511,7 @@ if %vvcINI%==0 (
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     echo.
-    echo. Build Fraunhofer VVC? [H.265 successor enc/decoder]
+    echo. Build VVC Reference Software? [H.265 successor enc/decoder]
     echo. 1 = Yes
     echo. 2 = No
     echo.
@@ -525,6 +525,66 @@ if %buildvvc%==1 set "vvc=y"
 if %buildvvc%==2 set "vvc=n"
 if %buildvvc% GTR 2 GOTO vvc
 if %deleteINI%==1 echo.vvc=^%buildvvc%>>%ini%
+
+:uvg266
+if %uvg266INI%==0 (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Build uvg266? [H.266 encoder by ultravideo, the Kvazaar team]
+    echo. 1 = Yes
+    echo. 2 = No
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P builduvg266="Build uvg266: "
+) else set builduvg266=%uvg266INI%
+
+if "%builduvg266%"=="" GOTO uvg266
+if %builduvg266%==1 set "uvg266=y"
+if %builduvg266%==2 set "uvg266=n"
+if %builduvg266% GTR 2 GOTO uvg266
+if %deleteINI%==1 echo.uvg266=^%builduvg266%>>%ini%
+
+:vvenc
+if %vvencINI%==0 (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Build vvenc? [Fraunhofer HHI Versatile Video Encoder]
+    echo. 1 = Yes
+    echo. 2 = No
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P buildvvenc="Build vvenc: "
+) else set buildvvenc=%vvencINI%
+
+if "%buildvvenc%"=="" GOTO vvenc
+if %buildvvenc%==1 set "vvenc=y"
+if %buildvvenc%==2 set "vvenc=n"
+if %buildvvenc% GTR 2 GOTO vvenc
+if %deleteINI%==1 echo.vvenc=^%buildvvenc%>>%ini%
+
+:vvdec
+if %vvdecINI%==0 (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Build vvdec? [Fraunhofer HHI Versatile Video Decoder]
+    echo. 1 = Yes
+    echo. 2 = No
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P buildvvdec="Build vvdec: "
+) else set buildvvdec=%vvdecINI%
+
+if "%buildvvdec%"=="" GOTO vvdec
+if %buildvvdec%==1 set "vvdec=y"
+if %buildvvdec%==2 set "vvdec=n"
+if %buildvvdec% GTR 2 GOTO vvdec
+if %deleteINI%==1 echo.vvdec=^%buildvvdec%>>%ini%
 
 :svtav1
 if %svtav1INI%==0 (
@@ -1049,26 +1109,6 @@ if %buildcyanrip%==2 set "cyanrip=n"
 if %buildcyanrip% GTR 2 GOTO cyanrip
 if %deleteINI%==1 echo.cyanrip2=^%buildcyanrip%>>%ini%
 
-:redshift
-if %redshiftINI%==0 (
-    echo -------------------------------------------------------------------------------
-    echo -------------------------------------------------------------------------------
-    echo.
-    echo. Build redshift (f.lux FOSS clone^)?
-    echo. 1 = Yes
-    echo. 2 = No
-    echo.
-    echo -------------------------------------------------------------------------------
-    echo -------------------------------------------------------------------------------
-    set /P buildredshift="Build redshift: "
-) else set buildredshift=%redshiftINI%
-
-if "%buildredshift%"=="" GOTO redshift
-if %buildredshift%==1 set "redshift=y"
-if %buildredshift%==2 set "redshift=n"
-if %buildredshift% GTR 2 GOTO redshift
-if %deleteINI%==1 echo.redshift=^%buildredshift%>>%ini%
-
 :ripgrep
 if %ripgrepINI%==0 (
     echo -------------------------------------------------------------------------------
@@ -1311,6 +1351,30 @@ if %loggingF%==2 set "logging=n"
 if %loggingF% GTR 2 GOTO logging
 if %deleteINI%==1 echo.logging=^%loggingF%>>%ini%
 
+:autouploadlogs
+if %autouploadlogsINI%==0 (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Automatically upload error logs to 0x0.st?
+    echo. 1 = Yes [recommended]
+    echo. 2 = No
+    echo.
+    echo This will upload logs.zip to 0x0.st for easy copy and pasting into github
+    echo issues. If you choose no, then uploading logs will be your responsibility and
+    echo no guarantees will be made for issues lacking logs.
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P autouploadlogsF="Upload logs: "
+) else set autouploadlogsF=%autouploadlogsINI%
+
+if "%autouploadlogsF%"=="" GOTO autouploadlogs
+if %autouploadlogsF%==1 set "autouploadlogs=y"
+if %autouploadlogsF%==2 set "autouploadlogs=n"
+if %autouploadlogsF% GTR 2 GOTO autouploadlogs
+if %deleteINI%==1 echo.autouploadlogs=^%autouploadlogsF%>>%ini%
+
 :updateSuite
 if %updateSuiteINI%==0 (
     echo -------------------------------------------------------------------------------
@@ -1462,20 +1526,6 @@ if not exist "%instdir%\msys64\msys2_shell.cmd" (
 rem getMintty
 set "bash=%instdir%\msys64\usr\bin\bash.exe"
 set "PATH=%instdir%\msys64\opt\bin;%instdir%\msys64\usr\bin;%PATH%"
-(
-    echo.# Begin /etc/nsswitch.conf
-    echo.
-    echo.passwd: files db
-    echo.group: files db
-    echo.
-    echo.db_enum: cache builtin
-    echo.
-    echo.db_home: cygwin desc /home/user
-    echo.db_shell: cygwin desc
-    echo.db_gecos: cygwin desc
-    echo.
-    echo.# End /etc/nsswitch.conf
-)>"%instdir%\msys64\etc\nsswitch.conf"
 if not exist %instdir%\mintty.lnk (
     echo -------------------------------------------------------------------------------
     echo.- make a first run
@@ -1697,10 +1747,11 @@ set compileArgs=--cpuCount=%cpuCount% --build32=%build32% --build64=%build64% ^
 --ffmpeg=%ffmpeg% --ffmpegUpdate=%ffmpegUpdate% --ffmpegChoice=%ffmpegChoice% --mplayer=%mplayer% ^
 --mpv=%mpv% --license=%license2%  --stripping=%stripFile% --packing=%packFile% --rtmpdump=%rtmpdump% ^
 --logging=%logging% --bmx=%bmx% --standalone=%standalone% --aom=%aom% --faac=%faac% --exhale=%exhale% ^
---ffmbc=%ffmbc% --curl=%curl% --cyanrip=%cyanrip% --redshift=%redshift% --rav1e=%rav1e% --ripgrep=%ripgrep% ^
---dav1d=%dav1d% --vvc=%vvc% --jq=%jq% --jo=%jo% --dssim=%dssim% --avs2=%avs2% --timeStamp=%timeStamp% ^
---noMintty=%noMintty% --ccache=%ccache% --svthevc=%svthevc% --svtav1=%svtav1% --svtvp9=%svtvp9% --xvc=%xvc% ^
---vlc=%vlc% --libavif=%libavif% --jpegxl=%jpegxl%
+--ffmbc=%ffmbc% --curl=%curl% --cyanrip=%cyanrip% --rav1e=%rav1e% --ripgrep=%ripgrep% --dav1d=%dav1d% ^
+--vvc=%vvc% --uvg266=%uvg266% --vvenc=%vvenc% --vvdec=%vvdec% --jq=%jq% --jo=%jo% --dssim=%dssim% ^
+--avs2=%avs2% --timeStamp=%timeStamp% --noMintty=%noMintty% --ccache=%ccache% --svthevc=%svthevc% ^
+--svtav1=%svtav1% --svtvp9=%svtvp9% --xvc=%xvc% --vlc=%vlc% --libavif=%libavif% --jpegxl=%jpegxl% ^
+--autouploadlogs=%autouploadlogs%
     set "noMintty=%noMintty%"
     if %build64%==yes ( set "MSYSTEM=MINGW64" ) else set "MSYSTEM=MINGW32"
     set "MSYS2_PATH_TYPE=inherit"
@@ -1717,6 +1768,7 @@ if %noMintty%==y (
     /usr/bin/bash ^
     --login /build/media-suite_compile.sh %compileArgs%
 )
+color
 exit /B %ERRORLEVEL%
 endlocal
 goto :EOF
@@ -1782,11 +1834,15 @@ goto :EOF
         echo.CFLAGS="-mthreads -mtune=generic -O2 -pipe"
     )
     echo.CXXFLAGS="${CFLAGS}"
-    echo.LDFLAGS="-pipe -static-libgcc -static-libstdc++"
+    if %CC%==clang (
+        echo.LDFLAGS="-pipe -static-libgcc --start-no-unused-arguments -static-libstdc++ --end-no-unused-arguments"
+    ) else (
+        echo.LDFLAGS="-pipe -static-libgcc -static-libstdc++"
+    )
     echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CPPFLAGS CFLAGS CXXFLAGS LDFLAGS MSYSTEM
     echo.
     echo.export CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/cargo"
-    echo.export CCACHE_DIR="$HOME/.ccache"
+    echo.export CCACHE_DIR="${LOCALBUILDDIR}/cache"
     echo.
     echo.export PYTHONPATH=
     echo.

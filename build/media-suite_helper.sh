@@ -135,7 +135,8 @@ vcs_get_current_type() {
 
 # check_valid_vcs /build/ffmpeg-git
 check_valid_vcs() {
-    [[ -d ${1:-$PWD}/.git ]]
+    [[ -d ${1:-$PWD}/.git ]] &&
+        git -C "${1:-$PWD}/.git" rev-parse HEAD > /dev/null 2>&1
 }
 
 # vcs_get_current_head /build/ffmpeg-git
@@ -282,14 +283,9 @@ do_vcs() {
     vcs_set_url "$vcsURL"
     log -q git.fetch vcs_fetch
     oldHead=$(vcs_get_merge_base "$ref")
-    newHead="$oldHead"
-
-    if ! [[ -f recently_checked && recently_checked -nt "$LOCALBUILDDIR/last_run" ]]; then
-        do_print_progress "  Running git update for $vcsFolder"
-        log -q git.reset vcs_reset "$ref"
-        newHead=$(vcs_get_current_head "$PWD")
-        touch recently_checked
-    fi
+    do_print_progress "  Running git update for $vcsFolder"
+    log -q git.reset vcs_reset "$ref"
+    newHead=$(vcs_get_current_head "$PWD")
 
     vcs_clean
 
@@ -1079,6 +1075,14 @@ mpv_enabled_any() {
     return 1
 }
 
+mpv_disabled_any() {
+    local opt
+    for opt; do
+        mpv_disabled "$opt" && return 0
+    done
+    return 1
+}
+
 mpv_enabled_all() {
     local opt
     for opt; do
@@ -1333,9 +1337,10 @@ do_rust() {
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
-    log "rust.build" "$RUSTUP_HOME/bin/cargo.exe" build --release \
+    CC="ccache clang" \
+        log "rust.build" "$RUSTUP_HOME/bin/cargo.exe" build \
         --target="$CARCH"-pc-windows-gnu \
-        --jobs="$cpuCount" "$@" "${rust_extras[@]}"
+        --jobs="$cpuCount" "${@:---release}" "${rust_extras[@]}"
     extra_script post rust
     unset rust_extras
 }
@@ -1347,7 +1352,9 @@ do_rustinstall() {
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
-    log "rust.install" "$RUSTUP_HOME/bin/cargo.exe" install \
+    CC="ccache clang" \
+        PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
+        log "rust.install" "$RUSTUP_HOME/bin/cargo.exe" install \
         --target="$CARCH"-pc-windows-gnu \
         --jobs="$cpuCount" "${@:---path=.}" "${rust_extras[@]}"
     extra_script post rust
@@ -1402,7 +1409,7 @@ zip_logs() {
         } | sort -uo failedFiles
         7za -mx=9 a logs.zip -- @failedFiles > /dev/null && rm failedFiles
     )
-    [[ ! -f $LOCALBUILDDIR/no_logs && -n $build32$build64 ]] &&
+    [[ ! -f $LOCALBUILDDIR/no_logs && -n $build32$build64 && $autouploadlogs = y ]] &&
         url="$(cd "$LOCALBUILDDIR" && /usr/bin/curl -sF'file=@logs.zip' https://0x0.st)"
     echo
     if [[ $url ]]; then
@@ -1702,6 +1709,12 @@ do_autoreconf() {
     extra_script post autoreconf
 }
 
+do_autoupdate() {
+    extra_script pre autoupdate
+    log "autoupdate" autoupdate "$@"
+    extra_script post autoupdate
+}
+
 do_autogen() {
     extra_script pre autogen
     log "autogen" ./autogen.sh "$@"
@@ -1914,7 +1927,7 @@ add_to_remove() {
 clean_suite() {
     do_simple_print -p "${orange}Deleting status files...${reset}"
     cd_safe "$LOCALBUILDDIR" > /dev/null
-    find . -maxdepth 2 \( -name recently_updated -o -name recently_checked \) -delete
+    find . -maxdepth 2 -name recently_updated -delete
     find . -maxdepth 2 -regex ".*build_successful\(32\|64\)bit\(_\\w+\)?\$" -delete
     echo -e "\\n\\t${green}Zipping man files...${reset}"
     do_zipman
@@ -2055,8 +2068,9 @@ EOF
 }
 
 create_cmake_toolchain() {
-    local _win_paths
+    local _win_paths mingw_path
     _win_paths=$(cygpath -pm "$LOCALDESTDIR:$MINGW_PREFIX:$MINGW_PREFIX/$MINGW_CHOST")
+    mingw_path=$(cygpath -m "$MINGW_PREFIX/include")
     local toolchain_file=(
         "SET(CMAKE_RC_COMPILER_INIT windres)"
         ""
@@ -2066,6 +2080,9 @@ create_cmake_toolchain() {
         "SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)"
         "SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)"
         "SET(CMAKE_BUILD_TYPE Release)"
+        "LIST(APPEND CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES $mingw_path)"
+        "LIST(APPEND CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES $mingw_path)"
+        "SET(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)"
     )
 
     mkdir -p "$LOCALDESTDIR"/etc > /dev/null 2>&1
@@ -2549,7 +2566,6 @@ safe_git_clean() {
     git clean -xfd \
         -e "/build_successful*" \
         -e "/recently_updated" \
-        -e '/recently_checked' \
         -e '/custom_updated' \
         -e '**/ab-suite.*.log' \
         "${@}"

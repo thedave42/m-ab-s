@@ -13,7 +13,7 @@ if [[ -z $LOCALBUILDDIR ]]; then
     read -r -p "Enter to continue" ret
     exit 1
 fi
-FFMPEG_BASE_OPTS=("--pkg-config=pkgconf" --pkg-config-flags="--keep-system-libs --keep-system-cflags --static" "--cc=$CC" "--cxx=$CXX" "--ld=$CXX")
+FFMPEG_BASE_OPTS=("--pkg-config=pkgconf" --pkg-config-flags="--keep-system-libs --keep-system-cflags --static" "--cc=$CC" "--cxx=$CXX" "--ld=$CXX" "--extra-cxxflags=-fpermissive")
 printf '\nBuild start: %(%F %T %z)T\n' -1 >> "$LOCALBUILDDIR/newchangelog"
 
 printf '#!/bin/bash\nbash %s %s\n' "$LOCALBUILDDIR/media-suite_compile.sh" "$*" > "$LOCALBUILDDIR/last_run"
@@ -51,13 +51,15 @@ while true; do
     --ffmbc=* ) ffmbc=${1#*=} && shift ;;
     --curl=* ) curl=${1#*=} && shift ;;
     --cyanrip=* ) cyanrip=${1#*=} && shift ;;
-    --redshift=* ) redshift=${1#*=} && shift ;;
     --ripgrep=* ) ripgrep=${1#*=} && shift ;;
     --rav1e=* ) rav1e=${1#*=} && shift ;;
     --dav1d=* ) dav1d=${1#*=} && shift ;;
     --libavif=* ) libavif=${1#*=} && shift ;;
     --jpegxl=* ) jpegxl=${1#*=} && shift ;;
     --vvc=* ) vvc=${1#*=} && shift ;;
+    --uvg266=* ) uvg266=${1#*=} && shift ;;
+    --vvenc=* ) vvenc=${1#*=} && shift ;;
+    --vvdec=* ) vvdec=${1#*=} && shift ;;
     --jq=* ) jq=${1#*=} && shift ;;
     --jo=* ) jo=${1#*=} && shift ;;
     --dssim=* ) dssim=${1#*=} && shift ;;
@@ -70,6 +72,7 @@ while true; do
     --svtvp9=* ) svtvp9=${1#*=} && shift ;;
     --xvc=* ) xvc=${1#*=} && shift ;;
     --vlc=* ) vlc=${1#*=} && shift ;;
+    --autouploadlogs=* ) autouploadlogs=${1#*=} && shift ;;
     -- ) shift && break ;;
     -* ) echo "Error, unknown option: '$1'." && exit 1 ;;
     * ) break ;;
@@ -160,7 +163,7 @@ if [[ $ripgrep = y || $rav1e = y || $dssim = y || $libavif = y ]] || enabled lib
     if ! files_exist "$RUSTUP_HOME"/bin/rustup.exe; then
         mkdir -p "$LOCALBUILDDIR/rustinstall"
         cd_safe "$LOCALBUILDDIR/rustinstall"
-        log download_rustup curl --proto '=https' --tlsv1.2 "https://sh.rustup.rs" -sSo rustup.sh
+        log download_rustup "${curl_opts[@]}" "https://sh.rustup.rs" -So rustup.sh
         log install_rust ./rustup.sh -v -y --no-modify-path \
             "--default-host=${MSYSTEM_CARCH}-pc-windows-gnu" \
             --default-toolchain=stable
@@ -183,7 +186,7 @@ _check=(bin-global/rg.exe)
 if [[ $ripgrep = y ]] &&
     do_vcs "https://github.com/BurntSushi/ripgrep.git"; then
     do_uninstall "${_check[@]}"
-    do_rust --features 'pcre2'
+    do_rust
     do_install "target/$CARCH-pc-windows-gnu/release/rg.exe" bin-global/
     do_checkIfExist
 fi
@@ -224,7 +227,7 @@ if { enabled libxml2 || [[ $cyanrip = y ]]; } &&
     do_uninstall include/libxml2/libxml "${_check[@]}"
     NOCONFIGURE=true do_autogen
     [[ -f config.mak ]] && log "distclean" make distclean
-    sed -ri 's|(bin_PROGRAMS = ).*|\1|g;/^runtest_SOURCES.*/,/We create xml2Conf.*/d' Makefile.am
+    sed -ri 's|(bin_PROGRAMS = ).*|\1|g' Makefile.am
     CFLAGS+=" -DLIBXML_STATIC_FOR_DLL -DNOLIBTOOL" \
         do_separate_confmakeinstall --without-python
     do_checkIfExist
@@ -236,7 +239,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
 
     _check=(libfreetype.a freetype2.pc)
     [[ $ffmpeg = sharedlibs ]] && _check+=(bin-video/libfreetype-6.dll libfreetype.dll.a)
-    if do_vcs "https://gitlab.freedesktop.org/freetype/freetype.git#tag=LATEST"; then
+    if do_vcs "https://github.com/freetype/freetype.git#tag=LATEST"; then
         do_uninstall include/freetype2 bin-global/freetype-config \
             bin{,-video}/libfreetype-6.dll libfreetype.dll.a "${_check[@]}"
         extracommands=(-D{harfbuzz,png,bzip2,brotli,zlib,tests}"=disabled")
@@ -251,7 +254,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
     [[ $ffmpeg = sharedlibs ]] && enabled_any {lib,}fontconfig &&
         do_removeOption "--enable-(lib|)fontconfig"
     if enabled_any {lib,}fontconfig &&
-        do_vcs "https://gitlab.freedesktop.org/fontconfig/fontconfig.git#tag=LATEST"; then
+        do_vcs "https://github.com/freedesktop/fontconfig.git#tag=LATEST"; then
         do_uninstall include/fontconfig "${_check[@]}"
         sed -i 's| test$||' Makefile.am
         sed -i 's|Libs.private:|& -lintl|' fontconfig.pc.in
@@ -281,7 +284,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
     if do_vcs "https://github.com/harfbuzz/harfbuzz.git"; then
         do_pacman_install ragel
         do_uninstall include/harfbuzz "${_check[@]}" libharfbuzz{-subset,}.la
-        extracommands=(-D{glib,gobject,cairo,fontconfig,icu,tests,introspection,docs,benchmark}"=disabled")
+        extracommands=(-D{glib,gobject,cairo,icu,tests,introspection,docs,benchmark}"=disabled")
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-library=both)
         do_mesoninstall global "${extracommands[@]}"
         # directwrite shaper doesn't work with mingw headers, maybe too old
@@ -413,7 +416,7 @@ mbedtls) _deps=("$MINGW_PREFIX/lib/libmbedtls.a") ;;
 esac
 [[ $standalone = y || $curl != n ]] && _check+=(bin-global/curl.exe)
 if [[ $mediainfo = y || $bmx = y || $curl != n || $cyanrip = y ]] &&
-    do_vcs "https://github.com/curl/curl.git#tag=LATEST"; then
+    do_vcs "https://github.com/curl/curl.git"; then
     do_patch "https://raw.githubusercontent.com/msys2/MINGW-packages/master/mingw-w64-curl/0003-libpsl-static-libs.patch"
     do_pacman_install nghttp2
 
@@ -457,7 +460,7 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
     _check=(libglut.a glut.pc)
     if do_vcs "https://github.com/dcnieho/FreeGLUT.git" freeglut; then
         do_uninstall lib/cmake/FreeGLUT include/GL "${_check[@]}"
-        do_cmakeinstall ../freeglut/freeglut -D{UNIX,FREEGLUT_BUILD_DEMOS,FREEGLUT_BUILD_SHARED_LIBS}=OFF -DFREEGLUT_REPLACE_GLUT=ON
+        do_cmakeinstall -D{UNIX,FREEGLUT_BUILD_DEMOS,FREEGLUT_BUILD_SHARED_LIBS}=OFF -DFREEGLUT_REPLACE_GLUT=ON
         do_checkIfExist
     fi
     _deps=(libglut.a)
@@ -465,7 +468,6 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
     if do_vcs "https://gitlab.com/libtiff/libtiff.git"; then
         do_pacman_install libjpeg-turbo xz zlib zstd libdeflate
         do_uninstall "${_check[@]}"
-        do_patch "https://gitlab.com/libtiff/libtiff/-/merge_requests/233.patch" am
         grep_or_sed 'Requires.private' libtiff-4.pc.in \
             '/Libs:/ a\Requires.private: libjpeg liblzma zlib libzstd glut'
         CFLAGS+=" -DFREEGLUT_STATIC" do_cmakeinstall global -D{webp,jbig,UNIX,lerc}=OFF
@@ -483,16 +485,6 @@ _check=(libwebp{,mux}.{a,pc})
 if [[ $ffmpeg != no || $standalone = y ]] && enabled libwebp &&
     do_vcs "https://chromium.googlesource.com/webm/libwebp"; then
     do_pacman_install giflib
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0001-WEBP_DEP_LIBRARIES-use-Threads-Threads.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0002-deps.cmake-unroll-img-loop-and-use-import-libraries-.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0003-CMake-link-imageioutil-to-exampleutil-after-defined.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0004-CMake-use-target_include_directories-instead-of-incl.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0005-CMake-use-import-libraries-if-possible-for-vwebp.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0006-CMake-use-import-library-for-SDL-if-available.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0007-CMake-include-src-along-with-binary_dir-src.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0008-CMake-add-WEBP_BUILD_WEBPMUX-to-list-of-checks-for-e.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0009-CMake-add-WEBP_BUILD_WEBPINFO-to-list-of-checks-for-.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libwebp/0010-deps-use-pkg-config-instead-of-find_package.patch" am
     do_uninstall include/webp bin-global/gif2webp.exe "${_check[@]}"
     extracommands=("-DWEBP_BUILD_EXTRAS=OFF" "-DWEBP_BUILD_VWEBP=OFF")
     if [[ $standalone = y ]]; then
@@ -503,6 +495,40 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libwebp &&
     CFLAGS+=" -DFREEGLUT_STATIC" \
         do_cmakeinstall global -DWEBP_ENABLE_SWAP_16BIT_CSP=ON "${extracommands[@]}"
     do_checkIfExist
+fi
+
+if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
+    _check=(libhwy{,_{contrib,test}}.a libhwy{,-{contrib,test}}.pc hwy/highway.h)
+    if do_vcs "https://github.com/google/highway.git"; then
+        do_uninstall "${_check[@]}" include/hwy
+        CXXFLAGS+=" -DHWY_COMPILE_ALL_ATTAINABLE" do_cmakeinstall
+        do_checkIfExist
+    fi
+
+    _check=(bin/gflags_completions.sh gflags.pc gflags/gflags.h libgflags{,_nothreads}.a)
+    if do_vcs "https://github.com/gflags/gflags.git"; then
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/gflags/0001-cmake-chop-off-.lib-extension-from-shlwapi.patch" am
+        do_uninstall "${_check[@]}" lib/cmake/gflags include/gflags
+        do_cmakeinstall -D{BUILD,INSTALL}_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DINSTALL_HEADERS=ON \
+            -DREGISTER_{BUILD_DIR,INSTALL_PREFIX}=OFF
+        do_checkIfExist
+    fi
+
+    _deps=(libhwy.a libgflags.a)
+    _check=(libjxl{{,_dec,_threads}.a,.pc} jxl/decode.h)
+    [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,cjpeg_hdr,jxlinfo}.exe)
+    if do_vcs "https://github.com/libjxl/libjxl.git"; then
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0001-brotli-add-ldflags.patch" am
+        do_uninstall "${_check[@]}" include/jxl
+        do_pacman_install lcms2 asciidoc
+        extracommands=()
+        log -q "git.submodule" git submodule update --init --recursive
+        [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
+        do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
+            -DJPEGXL_{FORCE_SYSTEM_{BROTLI,HWY},STATIC}=ON -DJPEGXL_BUNDLE_GFLAGS=OFF "${extracommands[@]}"
+        do_checkIfExist
+        unset extracommands
+    fi
 fi
 
 if files_exist bin-video/OpenCL.dll; then
@@ -540,8 +566,8 @@ unset opencldll
 
 if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
     do_pacman_remove tesseract-ocr
-    _check=(liblept.{,l}a lept.pc)
-    if do_vcs "https://github.com/DanBloomberg/leptonica.git#tag=LATEST"; then
+    _check=(libleptonica.{,l}a lept.pc)
+    if do_vcs "https://github.com/DanBloomberg/leptonica.git"; then
         do_uninstall include/leptonica "${_check[@]}"
         [[ -f configure ]] || do_autogen
         do_separate_confmakeinstall --disable-programs --without-{lib{openjpeg,webp},giflib}
@@ -556,6 +582,7 @@ if [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; then
         do_uninstall include/tesseract "${_check[@]}"
         sed -i -e 's|Libs.private.*|& -lstdc++|' \
                -e 's|Requires.private.*|& libarchive iconv libtiff-4|' tesseract.pc.in
+        grep_or_sed ws2_32 "$MINGW_PREFIX/lib/pkgconfig/libarchive.pc" 's;Libs.private:.*;& -lws2_32;g'
         case $CC in
         *gcc) sed -i -e 's|Libs.private.*|& -fopenmp -lgomp|' tesseract.pc.in ;;
         *clang) sed -i -e 's|Libs.private.*|& -fopenmp=libomp|' tesseract.pc.in ;;
@@ -580,18 +607,18 @@ fi
 
 _check=(librubberband.a rubberband.pc rubberband/{rubberband-c,RubberBandStretcher}.h)
 if { { [[ $ffmpeg != no ]] && enabled librubberband; } ||
-    ! mpv_disabled rubberband; } && do_pkgConfig "rubberband = 1.8.1" &&
+    ! mpv_disabled rubberband; } &&
     do_vcs "https://github.com/m-ab-s/rubberband.git"; then
     do_uninstall "${_check[@]}"
     log "distclean" make distclean
     do_make PREFIX="$LOCALDESTDIR" install-static
     do_checkIfExist
-    add_to_remove
 fi
 
 _check=(zimg{.h,++.hpp} libzimg.{,l}a zimg.pc)
 if [[ $ffmpeg != no ]] && enabled libzimg &&
     do_vcs "https://github.com/sekrit-twc/zimg.git"; then
+    log -q "git.submodule" git submodule update --init --recursive
     do_uninstall "${_check[@]}"
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/zimg/0001-libm_wrapper-define-__CRT__NO_INLINE-before-math.h.patch" am
     do_autoreconf
@@ -619,7 +646,6 @@ if [[ $ffmpeg != no ]] && enabled libilbc &&
     log -q "git.submodule" git submodule update --init --recursive
     do_cmakeinstall -DUNIX=OFF
     do_checkIfExist
-    add_to_remove
 fi
 
 grep_or_sed stdc++ "$(file_installed libilbc.pc)" "/Libs:/ a\Libs.private: -lstdc++"
@@ -629,7 +655,6 @@ enabled libspeex && do_pacman_install speex
 
 _check=(bin-audio/speex{enc,dec}.exe)
 if [[ $standalone = y ]] && enabled libspeex &&
-    ! grep -q '1.2.0' "$LOCALDESTDIR/bin-audio/speexenc.exe" 2> /dev/null &&
     do_vcs "https://github.com/xiph/speex.git"; then
     do_uninstall include/speex libspeex.{l,}a speex.pc "${_check[@]}"
     do_autoreconf
@@ -637,7 +662,6 @@ if [[ $standalone = y ]] && enabled libspeex &&
     do_make
     do_install src/speex{enc,dec}.exe bin-audio/
     do_checkIfExist
-    add_to_remove
 fi
 
 _check=(libFLAC{,++}.{,l}a flac{,++}.pc)
@@ -725,7 +749,6 @@ if [[ $standalone = y ]] && enabled libvorbis &&
     do_make
     do_install oggenc/oggenc.exe oggdec/oggdec.exe bin-audio/
     do_checkIfExist
-    add_to_remove
 fi
 
 _check=(libopus.{,l}a opus.pc opus/opus.h)
@@ -877,11 +900,11 @@ unset _deps
 
 _check=(libopenmpt.{a,pc})
 if [[ $ffmpeg != no ]] && enabled libopenmpt &&
-    do_vcs "https://github.com/OpenMPT/openmpt.git#tag=libopenmpt-*"; then
+    do_vcs "https://github.com/OpenMPT/openmpt.git#branch=OpenMPT-1.30"; then
     do_uninstall include/libopenmpt "${_check[@]}"
     mkdir bin 2> /dev/null
     extracommands=("CONFIG=mingw64-win${bits%bit}" "AR=ar" "STATIC_LIB=1" "EXAMPLES=0" "OPENMPT123=0"
-        "TEST=0" "OS=")
+        "TEST=0" "OS=" "CC=$CC" "CXX=$CXX" "MINGW_COMPILER=${CC##* }")
     log clean make clean "${extracommands[@]}"
     do_makeinstall PREFIX="$LOCALDESTDIR" "${extracommands[@]}"
     sed -i 's/Libs.private.*/& -lrpcrt4 -lstdc++/' "$LOCALDESTDIR/lib/pkgconfig/libopenmpt.pc"
@@ -997,9 +1020,10 @@ _check=(libvmaf.{a,pc} libvmaf/libvmaf.h)
 if [[ $ffmpeg != no ]] && enabled libvmaf &&
     do_vcs "https://github.com/Netflix/vmaf.git"; then
     do_uninstall share/model "${_check[@]}"
+    do_pacman_install -m vim # for built_in_models
     cd_safe libvmaf
     CFLAGS="-msse2 -mfpmath=sse -mstackrealign $CFLAGS" do_mesoninstall video \
-        -Denable_float=true
+        -Denable_float=true -Dbuilt_in_models=true
     do_checkIfExist
 fi
 file_installed -s libvmaf.dll.a && rm "$(file_installed libvmaf.dll.a)"
@@ -1063,14 +1087,19 @@ if { [[ $rav1e = y ]] || [[ $libavif = y ]] || enabled librav1e; } &&
 
     # standalone binary
     if [[ $rav1e = y || $standalone = y ]]; then
-        do_rust
-        do_install "target/$CARCH-pc-windows-gnu/release/rav1e.exe" bin-video/
+        do_rust --profile release-no-lto
+        find "target/$CARCH-pc-windows-gnu" -name "rav1e.exe" | while read -r f; do
+            do_install "$f" bin-video/
+        done
     fi
 
     # C lib
     if [[ $libavif = y ]] || enabled librav1e; then
         rm -f "$CARGO_HOME/config" 2> /dev/null
-        log "install-rav1e-c" "$RUSTUP_HOME/bin/cargo.exe" capi install \
+        PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
+            CC="ccache clang" \
+            CXX="ccache clang++" \
+            log "install-rav1e-c" "$RUSTUP_HOME/bin/cargo.exe" capi install \
             --release --jobs "$cpuCount" --prefix="$LOCALDESTDIR" \
             --destdir="$PWD/install-$bits"
 
@@ -1093,8 +1122,6 @@ if [[ $libavif = y ]] && {
     do_vcs "https://github.com/AOMediaCodec/libavif.git"; then
     do_uninstall "${_check[@]}"
     do_pacman_install libjpeg-turbo
-    do_patch "https://github.com/AOMediaCodec/libavif/pull/751.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libavif/0001-CMake-Use-the-import-libraries-and-the-proper-variab.patch" am
     extracommands=()
     pc_exists "dav1d" && extracommands+=("-DAVIF_CODEC_DAV1D=ON")
     pc_exists "rav1e" && extracommands+=("-DAVIF_CODEC_RAV1E=ON")
@@ -1105,26 +1132,6 @@ if [[ $libavif = y ]] && {
     esac
     do_cmakeinstall video -DAVIF_ENABLE_WERROR=OFF "${extracommands[@]}"
     do_checkIfExist
-fi
-
-_check=(bin-global/{c,d}jxl.exe)
-if [[ $jpegxl = y ]] && do_vcs "https://gitlab.com/wg1/jpeg-xl.git"; then
-    do_uninstall "${_check[@]}"
-    do_pacman_remove asciidoc-py3-git
-    do_pacman_install lcms2 asciidoc
-    log -q "git.submodule" git submodule update --init --recursive
-    extra_cxxflags=()
-    if [[ ${CC##* } = gcc ]]; then
-        do_simple_print -p "${orange}Warning: JPEG-XL compiled with GCC will not use SIMD optimizations!$reset"
-        extra_cxxflags+=('-DHWY_COMPILE_ONLY_SCALAR')
-    fi
-    CXXFLAGS+=" ${extra_cxxflags[*]}" \
-        do_cmake global -D{BUILD_TESTING,JPEGXL_ENABLE_{OPENEXR,SKCMS,BENCHMARK}}=OFF \
-        -DJPEGXL_{FORCE_SYSTEM_BROTLI,STATIC}=ON -DJPEGXL_ENABLE_MANPAGES=OFF
-    do_ninja
-    do_install tools/{c,d}jxl.exe bin-global/
-    do_checkIfExist
-    unset extra_cxxflags
 fi
 
 _check=(libkvazaar.{,l}a kvazaar.pc kvazaar.h)
@@ -1258,7 +1265,6 @@ if [[ $ffmpeg != no ]] && enabled libxavs && do_pkgConfig "xavs = 0.1." "0.1" &&
     do_make libxavs.a
     for _file in xavs.h libxavs.a xavs.pc; do do_install "$_file"; done
     do_checkIfExist
-    add_to_remove
     unset _file
 fi
 
@@ -1343,7 +1349,6 @@ if [[ $ffmpeg != no ]] && enabled libvidstab &&
     do_uninstall include/vid.stab "${_check[@]}"
     do_cmakeinstall
     do_checkIfExist
-    add_to_remove
 fi
 
 _check=(libzvbi.{h,{l,}a} zvbi-0.2.pc)
@@ -1463,7 +1468,8 @@ if [[ $xvc == y ]] &&
     do_checkIfExist
 fi
 
-if [[ $x264 != no ]]; then
+if [[ $x264 != no ]] ||
+    { [[ $ffmpeg != no ]] && enabled libx264; }; then
     _check=(x264{,_config}.h libx264.a x264.pc)
     [[ $standalone = y ]] && _check+=(bin-video/x264.exe)
     _bitdepth=$(get_api_version x264_config.h BIT_DEPTH)
@@ -1578,6 +1584,7 @@ fi
 _check=(x265{,_config}.h libx265.a x265.pc)
 [[ $standalone = y ]] && _check+=(bin-video/x265.exe)
 if [[ ! $x265 = n ]] && do_vcs "https://bitbucket.org/multicoreware/x265_git.git"; then
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/x265/0001-cmake-split-absolute-library-paths-to-L-and-l.patch" am
     do_uninstall libx265{_main10,_main12}.a bin-video/libx265_main{10,12}.dll "${_check[@]}"
     [[ $bits = 32bit ]] && assembly=-DENABLE_ASSEMBLY=OFF
     [[ $x265 = d ]] && xpsupport=-DWINXP_SUPPORT=ON
@@ -1714,8 +1721,8 @@ if enabled librist && do_vcs "https://code.videolan.org/rist/librist.git"; then
 fi
 
 if  { ! mpv_disabled vapoursynth || enabled vapoursynth; }; then
-    _python_ver=3.8.9
-    _python_lib=python38
+    _python_ver=3.10.6
+    _python_lib=python310
     [[ $bits = 32bit ]] && _arch=win32 || _arch=amd64
     _check=("lib$_python_lib.a")
     if files_exist "${_check[@]}"; then
@@ -1727,7 +1734,7 @@ if  { ! mpv_disabled vapoursynth || enabled vapoursynth; }; then
         do_checkIfExist
     fi
 
-    _vsver=54
+    _vsver=59
     _check=(lib{vapoursynth,vsscript}.a vapoursynth{,-script}.pc vapoursynth/{VS{Helper,Script},VapourSynth}.h)
     if pc_exists "vapoursynth = $_vsver" && files_exist "${_check[@]}"; then
         do_print_status "vapoursynth R$_vsver" "$green" "Up-to-date"
@@ -1778,18 +1785,17 @@ fi
 
 _check=(liblensfun.a lensfun.pc lensfun/lensfun.h)
 if [[ $ffmpeg != no ]] && enabled liblensfun &&
-    do_pkgConfig "lensfun = 0.3.95.0" &&
     do_vcs "https://github.com/lensfun/lensfun.git"; then
     do_pacman_install glib2
     grep_or_sed liconv "$MINGW_PREFIX/lib/pkgconfig/glib-2.0.pc" 's;-lintl;& -liconv;g'
+    do_patch "https://github.com/m-ab-s/mabs-patches/raw/master/lensfun/0001-CMake-exclude-mingw-w64-from-some-msvc-exclusive-thi.patch" am
+    do_patch "https://github.com/m-ab-s/mabs-patches/raw/master/lensfun/0002-CMake-don-t-add-glib2-s-includes-as-SYSTEM-dirs.patch" am
     grep_or_sed Libs.private libs/lensfun/lensfun.pc.cmake '/Libs:/ a\Libs.private: -lstdc++'
     do_uninstall "bin-video/lensfun" "${_check[@]}"
-    do_patch "https://github.com/m-ab-s/mabs-patches/raw/master/lensfun/0001-CMake-exclude-mingw-w64-from-some-msvc-exclusive-thi.patch"
     CFLAGS+=" -DGLIB_STATIC_COMPILATION" CXXFLAGS+=" -DGLIB_STATIC_COMPILATION" \
         do_cmakeinstall -DBUILD_STATIC=on -DBUILD_{TESTS,LENSTOOL,DOC}=off \
         -DINSTALL_HELPER_SCRIPTS=off -DCMAKE_INSTALL_DATAROOTDIR="$LOCALDESTDIR/bin-video"
     do_checkIfExist
-    add_to_remove
 fi
 
 _check=(bin-video/vvc/{Encoder,Decoder}App.exe)
@@ -1810,17 +1816,51 @@ if [[ $bits = 64bit && $vvc = y ]] &&
     unset _notrequired
 fi
 
+_check=(bin-video/uvg266.exe libuvg266.a uvg266.pc uvg266.h)
+if [[ $bits = 64bit && $uvg266 = y ]] &&
+    do_vcs "https://github.com/ultravideo/uvg266.git"; then
+    do_uninstall version.h "${_check[@]}"
+    do_cmakeinstall video -DBUILD_TESTING=OFF
+    do_checkIfExist
+fi
+
+_check=(bin-video/vvenc{,FF}app.exe
+    vvenc/vvenc.h
+    libvvenc.{a,pc}
+    lib/cmake/vvenc/vvencConfig.cmake
+    libapputils.a)
+if [[ $bits = 64bit && $vvenc = y ]] &&
+    do_vcs "https://github.com/fraunhoferhhi/vvenc.git"; then
+    do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
+    do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF
+    do_checkIfExist
+fi
+
+_check=(bin-video/vvdecapp.exe
+    vvdec/vvdec.h
+    libvvdec.{a,pc}
+    lib/cmake/vvdec/vvdecConfig.cmake)
+if [[ $bits = 64bit && $vvdec = y ]] &&
+    do_vcs "https://github.com/fraunhoferhhi/vvdec.git"; then
+    do_uninstall include/vvdec lib/cmake/vvdec "${_check[@]}"
+    do_cmakeinstall video -DVVDEC_ENABLE_LINK_TIME_OPT=OFF
+    do_checkIfExist
+fi
+
 _check=(avisynth/avisynth{,_c}.h
-        avisynth/avs/{alignment,capi,config,cpuid,minmax,posix,types,win}.h)
+        avisynth/avs/{alignment,arch,capi,config,cpuid,minmax,posix,types,win,version}.h)
 if [[ $ffmpeg != no ]] && enabled avisynth &&
     do_vcs "https://github.com/AviSynth/AviSynthPlus.git"; then
     do_uninstall "${_check[@]}"
-    do_cmakeinstall -DHEADERS_ONLY=ON
+    do_cmake -DHEADERS_ONLY=ON
+    do_ninja VersionGen
+    do_ninjainstall
     do_checkIfExist
 fi
 
 _check=(libvulkan.a vulkan.pc vulkan/vulkan.h d3d{kmthk,ukmdt}.h)
-if { { [[ $ffmpeg != no ]] && enabled vulkan; } || ! mpv_disabled vulkan; } &&
+if { { [[ $ffmpeg != no ]] && enabled_any vulkan libplacebo; } ||
+     { [[ $mpv != n ]] && ! mpv_disabled_any vulkan libplacebo; } } &&
     do_vcs "https://github.com/KhronosGroup/Vulkan-Loader.git" vulkan-loader; then
     _DeadSix27=https://raw.githubusercontent.com/DeadSix27/python_cross_compile_script/master
     _mabs=https://raw.githubusercontent.com/m-ab-s/mabs-patches/master
@@ -1843,18 +1883,45 @@ if { { [[ $ffmpeg != no ]] && enabled vulkan; } || ! mpv_disabled vulkan; } &&
     do_print_progress "Building Vulkan-Loader"
     CFLAGS+=" -DSTRSAFE_NO_DEPRECATE" do_cmakeinstall -DBUILD_TESTS=OFF -DUSE_CCACHE=OFF \
     -DUSE_UNSAFE_C_GEN=ON -DVULKAN_HEADERS_INSTALL_DIR="$LOCALDESTDIR" \
-    -DBUILD_STATIC_LOADER=ON -DUNIX=OFF
+    -DBUILD_STATIC_LOADER=ON -DUNIX=OFF -DENABLE_WERROR=OFF
     do_checkIfExist
     unset _DeadSix27 _mabs _shinchiro
 fi
 
+_check=(spirv_cross/spirv_cross_c.h spirv-cross.pc libspirv-cross.a)
+if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
+     { [[ $mpv != n ]] && ! mpv_disabled spirv-cross; } ||
+     { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
+    do_vcs "https://github.com/KhronosGroup/SPIRV-Cross.git"; then
+    do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc libspirv-cross-c-shared.a
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/SPIRV-Cross/0001-add-a-basic-Meson-build-system-for-use-as-a-subproje.patch" am
+    sed -i 's/0.13.0/0.48.0/' meson.build
+    do_mesoninstall
+    do_checkIfExist
+fi
+
 _check=(lib{glslang,OSDependent,HLSL,OGLCompiler,SPVRemapper}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
-if [[ $ffmpeg != no ]] && enabled libglslang &&
+if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
+     { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
     do_vcs "https://github.com/KhronosGroup/glslang.git"; then
     do_uninstall "${_check[@]}"
     log dependencies /usr/bin/python ./update_glslang_sources.py
     do_cmakeinstall -DUNIX=OFF
+    do_checkIfExist
+fi
+
+_check=(libplacebo.{a,pc})
+_deps=(lib{vulkan,shaderc_combined}.a spirv-cross.pc)
+if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
+     { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
+    do_vcs "https://code.videolan.org/videolan/libplacebo.git"; then
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0001-meson-use-shaderc_combined.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0002-spirv-cross-use-spirv-cross-instead-of-c-shared.patch" am
+    do_pacman_install python-{mako,setuptools}
+    do_uninstall "${_check[@]}"
+    log -q "git.submodule" git submodule update --init --recursive
+    do_mesoninstall -Dvulkan-registry="$LOCALDESTDIR/share/vulkan/registry/vk.xml" -Ddemos=false -Dd3d11=enabled
     do_checkIfExist
 fi
 
@@ -1891,12 +1958,12 @@ if [[ $ffmpeg != no ]]; then
         if test_newer "$MINGW_PREFIX"/lib/libopenh264.dll.a "$LOCALDESTDIR/bin-video/libopenh264.dll"; then
             pushd "$LOCALDESTDIR/bin-video" >/dev/null || do_exit_prompt "Did you delete the bin-video folder?"
             if [[ $bits = 64bit ]]; then
-              _sha256=d629f6aa5a38ed12266c3acb4c9a433b2960e3f55934db5b9740e85cf16c196c
+              _sha256=fd5c4c08418d7478d575760d54ff5d5670bbaa9636ab282ada625fa1fd5c7742
             else
-              _sha256=e0ca9dced2bffbe541730d4b31fa0c6c2407c2ce01eadccea90bf153d00ed595
+              _sha256=6e97a72bf2ef0766eeebad61b9aaf66275bc02246eadbfdd685e170b6507951e
             fi
             do_wget -c -r -q -h $_sha256 \
-            "https://github.com/cisco/openh264/releases/download/v2.1.1/openh264-2.1.1-win${bits%bit}.dll.bz2" \
+            "http://ciscobinary.openh264.org/openh264-2.3.0-win${bits%bit}.dll.bz2" \
                 libopenh264.dll.bz2
             [[ -f libopenh264.dll.bz2 ]] && bunzip2 libopenh264.dll.bz2
             unset _sha256
@@ -1954,10 +2021,7 @@ if [[ $ffmpeg != no ]]; then
         enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
         enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
 
-        enabled vapoursynth && {
-            do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-Add-Alternative-VapourSynth-demuxer.patch" am
-            do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0002-vapoursynth_alt-use-atomic_int-for-async_pending.patch" am
-        }
+        enabled vapoursynth && do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-Add-Alternative-VapourSynth-demuxer.patch" am
 
         if enabled openal &&
             pc_exists "openal"; then
@@ -2173,7 +2237,8 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         [[ -f src/luajit.exe ]] && log "clean" make clean
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/LuaJIT/0001-Add-win32-UTF-8-filesystem-functions.patch" am
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/LuaJIT/0002-win32-UTF-8-Remove-va-arg-and-.-and-unused-functions.patch" am
-        do_patch "https://raw.githubusercontent.com/msys2/MINGW-packages/master/mingw-w64-luajit/002-fix-pkg-config-file.patch"
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/LuaJIT/0003-make-don-t-override-user-provided-CC.patch" am
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/LuaJIT/0004-pkgconfig-fix-pkg-config-file-for-mingw64.patch" am
         sed -i "s|export PREFIX= /usr/local|export PREFIX=${LOCALDESTDIR}|g" Makefile
         sed -i "s|^prefix=.*|prefix=$LOCALDESTDIR|" etc/luajit.pc
         _luajit_args=("PREFIX=$LOCALDESTDIR" "INSTALL_BIN=$LOCALDESTDIR/bin-global" "INSTALL_TNAME=luajit.exe")
@@ -2239,6 +2304,8 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
     _check=(shaderc/shaderc.h libshaderc_combined.a)
     if ! mpv_disabled shaderc &&
         do_vcs "https://github.com/google/shaderc.git"; then
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0001-third_party-set-INSTALL-variables-as-cache.patch" am
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0002-shaderc_util-add-install.patch" am
         do_uninstall "${_check[@]}" include/shaderc include/libshaderc_util
 
         add_third_party() {
@@ -2263,37 +2330,17 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         # fix python indentation errors from non-existant code review
         grep -ZRlP --include="*.py" '\t' third_party/spirv-tools/ | xargs -r -0 -n1 sed -i 's;\t;    ;g'
 
-        do_cmake -GNinja -DSHADERC_SKIP_TESTS=ON -DSHADERC_ENABLE_WERROR_COMPILE=OFF
-        log make ninja
-        cmake -E copy_directory ../libshaderc/include/shaderc "$LOCALDESTDIR/include/shaderc"
-        cmake -E copy_directory ../libshaderc_util/include/libshaderc_util "$LOCALDESTDIR/include/libshaderc_util"
-        do_install libshaderc/libshaderc_combined.a lib/
+        do_cmakeinstall -GNinja -DSHADERC_SKIP_{TESTS,EXAMPLES}=ON -DSHADERC_ENABLE_WERROR_COMPILE=OFF -DSKIP_{GLSLANG,SPIRV_TOOLS,GOOGLETEST}_INSTALL=ON -DSPIRV_HEADERS_SKIP_{INSTALL,EXAMPLES}=ON
         do_checkIfExist
         unset add_third_party
     fi
 
-    _check=(spirv_cross/spirv_cross_c.h spirv-cross.pc libspirv-cross.a)
-    if ! mpv_disabled spirv-cross &&
-        do_vcs "https://github.com/KhronosGroup/SPIRV-Cross.git"; then
-        do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc libspirv-cross-c-shared.a
-        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/SPIRV-Cross/0001-add-a-basic-Meson-build-system-for-use-as-a-subproje.patch" am
-        do_mesoninstall
-        do_checkIfExist
-    fi
-
-    _check=(libplacebo.{a,pc})
-    _deps=(lib{vulkan,shaderc_combined}.a)
-    if ! mpv_disabled libplacebo &&
-        do_vcs "https://code.videolan.org/videolan/libplacebo.git"; then
-        do_pacman_install python-mako
-        do_uninstall "${_check[@]}"
-        do_mesoninstall -Dvulkan-registry="$LOCALDESTDIR/share/vulkan/registry/vk.xml" -Ddemos=false
-        do_checkIfExist
-    fi
+    file_installed -s shaderc.pc && file_installed -s shaderc_static.pc &&
+        mv "$(file_installed shaderc_static.pc)" "$(file_installed shaderc.pc)"
 
     _check=()
     ! mpv_disabled cplayer && _check+=(bin-video/mpv.{exe,com})
-    mpv_enabled libmpv-shared && _check+=(bin-video/mpv-1.dll)
+    mpv_enabled libmpv-shared && _check+=(bin-video/mpv-2.dll)
     mpv_enabled libmpv-static && _check+=(libmpv.a)
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "https://github.com/mpv-player/mpv.git"; then
@@ -2303,7 +2350,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         log bootstrap /usr/bin/python bootstrap.py
         if [[ -d build ]]; then
             /usr/bin/python waf distclean >/dev/null 2>&1
-            do_uninstall bin-video/mpv{.exe,-1.dll}.debug "${_check[@]}"
+            do_uninstall bin-video/mpv{.exe,-2.dll}.debug "${_check[@]}"
         fi
 
         mpv_ldflags=("-L$LOCALDESTDIR/lib" "-L$MINGW_PREFIX/lib")
@@ -2381,7 +2428,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         hide_conflicting_libs -R
         files_exist share/man/man1/mpv.1 && dos2unix -q "$LOCALDESTDIR"/share/man/man1/mpv.1
         ! mpv_disabled debug-build &&
-            create_debug_link "$LOCALDESTDIR"/bin-video/mpv{.exe,-1.dll}
+            create_debug_link "$LOCALDESTDIR"/bin-video/mpv{.exe,-2.dll}
         create_winpty_exe mpv "$LOCALDESTDIR"/bin-video/ "export _started_from_console=yes"
         do_checkIfExist
     fi
@@ -2764,21 +2811,12 @@ if [[ $ffmbc = y ]] && do_vcs "https://github.com/bcoudurier/FFmbc.git#branch=ff
     _notrequired=true
     create_build_dir
     log configure ../configure --target-os=mingw32 --enable-gpl \
-        --disable-{dxva2,ffprobe} --extra-cflags=-DNO_DSHOW_STRSAFE
+        --disable-{dxva2,ffprobe} --extra-cflags=-DNO_DSHOW_STRSAFE \
+        --cc="$CC" --ld="$CXX"
     do_make
     do_install ffmbc.exe bin-video/
     do_checkIfExist
     unset _notrequired
-fi
-
-_check=(bin-global/redshift.exe)
-if [[ $redshift = y ]] && do_vcs "https://github.com/jonls/redshift.git"; then
-    do_pacman_remove perl
-    [[ -f configure ]] || log bootstrap ./bootstrap
-    CFLAGS+=' -D_POSIX_C_SOURCE' \
-        do_separate_confmakeinstall global --enable-wingdi \
-        --disable-{nls,ubuntu,corelocation,quartz,drm,randr,vidmode,geoclue2,gui}
-    do_checkIfExist
 fi
 
 do_simple_print -p "${orange}Finished $bits compilation of all tools${reset}"
