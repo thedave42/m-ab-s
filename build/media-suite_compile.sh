@@ -1512,11 +1512,7 @@ if [[ $x264 != no ]] ||
     _check=(x264{,_config}.h libx264.a x264.pc)
     [[ $standalone = y ]] && _check+=(bin-video/x264.exe)
     _bitdepth=$(get_api_version x264_config.h BIT_DEPTH)
-<<<<<<< HEAD
-    if do_vcs "https://github.com/mirror/x264.git" ||
-=======
     if do_vcs "$SOURCE_REPO_X264" ||
->>>>>>> upstream/master
         [[ $x264 = o8   && $_bitdepth =~ (0|10) ]] ||
         [[ $x264 = high && $_bitdepth =~ (0|8) ]] ||
         [[ $x264 =~ (yes|full|shared|fullv) && "$_bitdepth" != 0 ]]; then
