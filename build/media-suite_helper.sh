@@ -171,8 +171,6 @@ vcs_get_latest_tag() {
 vcs_set_url() {
     if vcs_test_remote "$1"; then
         git remote set-url origin "$1"
-    elif vcs_test_remote "https://gitlab.com/m-ab-s/${1##*/}"; then
-        git remote set-url origin "https://gitlab.com/m-ab-s/${1##*/}"
     fi
     git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 }
@@ -214,14 +212,9 @@ vcs_fetch() (
 # do_mabs_clone "$vcsURL" "$vcsFolder" "$ref"
 # For internal use for fallback links
 do_mabs_clone() {
-    {
-        #vcs_test_remote "$1" &&
-            log -qe git.clone vcs_clone "$1" "$2" "$3"
-    } || {
-        vcs_test_remote "https://gitlab.com/m-ab-s/${1##*/}" &&
-            log -qe git.clone vcs_clone "https://gitlab.com/m-ab-s/${1##*/}" "$2" "$3"
-    }
-    #check_valid_vcs "$2-git"
+    vcs_test_remote "$1" &&
+        log -q git.clone vcs_clone "$1" "$2" "$3"
+    check_valid_vcs "$2-git"
 }
 
 # get source from VCS
@@ -1337,7 +1330,8 @@ do_rust() {
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
-    CC="ccache clang" \
+    PKG_CONFIG_ALL_STATIC=true \
+        CC="ccache clang" \
         log "rust.build" "$RUSTUP_HOME/bin/cargo.exe" build \
         --target="$CARCH"-pc-windows-gnu \
         --jobs="$cpuCount" "${@:---release}" "${rust_extras[@]}"
@@ -1352,7 +1346,8 @@ do_rustinstall() {
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
-    CC="ccache clang" \
+    PKG_CONFIG_ALL_STATIC=true \
+        CC="ccache clang" \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
         log "rust.install" "$RUSTUP_HOME/bin/cargo.exe" install \
         --target="$CARCH"-pc-windows-gnu \
@@ -1409,8 +1404,8 @@ zip_logs() {
         } | sort -uo failedFiles
         7za -mx=9 a logs.zip -- @failedFiles > /dev/null && rm failedFiles
     )
-    [[ ! -f $LOCALBUILDDIR/no_logs && -n $build32$build64 && $autouploadlogs = y ]] &&
-        url="$(cd "$LOCALBUILDDIR" && /usr/bin/curl -sF'file=@logs.zip' https://0x0.st)"
+    # [[ ! -f $LOCALBUILDDIR/no_logs && -n $build32$build64 && $autouploadlogs = y ]] &&
+    #     url="$(cd "$LOCALBUILDDIR" && /usr/bin/curl -sF'file=@logs.zip' https://0x0.st)"
     echo
     if [[ $url ]]; then
         echo "${green}All relevant logs have been anonymously uploaded to $url"
@@ -1856,6 +1851,15 @@ get_java_home() {
     [[ -f "$javahome/bin/java.exe" ]] &&
         export JAVA_HOME="$javahome"
 }
+
+# can only retrieve the dll version if it's actually in the ProductVersion field
+get_dll_version() (
+    dll=$1
+    [[ -f $dll ]] || return 1
+    version="$(7z l "$dll" | grep 'ProductVersion:' | sed 's/.*ProductVersion: //')"
+    [[ -n $version ]] || return 1
+    echo "$version"
+)
 
 get_api_version() {
     local header="$1"
