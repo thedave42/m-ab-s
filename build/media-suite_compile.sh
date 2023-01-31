@@ -1791,9 +1791,6 @@ if [[ $x264 != no ]] ||
     _bitdepth=$(get_api_version x264_config.h BIT_DEPTH)
 <<<<<<< HEAD
     if do_vcs "$SOURCE_REPO_X264" ||
-=======
-    if do_vcs "https://github.com/mirror/x264.git" ||
->>>>>>> 6a7ffac5 (Use github mirror for x264)
         [[ $x264 = o8   && $_bitdepth =~ (0|10) ]] ||
         [[ $x264 = high && $_bitdepth =~ (0|8) ]] ||
         [[ $x264 =~ (yes|full|shared|fullv) && "$_bitdepth" != 0 ]]; then
