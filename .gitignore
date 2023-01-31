@@ -10,6 +10,7 @@
 /msys64/
 /msys32/
 
+!/build/x264-git/
 mintty.lnk
 update_suite.sh
 !build/bash.ps1
@@ -18,7 +19,8 @@ update_suite.sh
 !build/*options.txt
 !build/patches/
 !build/extras/
-!build/x264-git
+
+
 /build/post_suite.sh
 
 ## VS Code

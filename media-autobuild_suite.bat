@@ -31,6 +31,8 @@ rem set "TERM=xterm-256color"
 setlocal
 set instdir=%CD%
 
+
+
 if %PROCESSOR_ARCHITECTURE%==x86 if NOT DEFINED PROCESSOR_ARCHITEW6432 (
     echo ----------------------------------------------------------------------
     echo. 32-bit host machine and OS are no longer supported by the suite
@@ -66,18 +68,22 @@ if not ["%instdir:~32,1%"]==[""] (
     pause
 )
 
-for /f "usebackq tokens=*" %%f in (`powershell -noprofile -command $PSVersionTable.PSVersion.Major`) ^
-do if %%f lss 4 (
-    echo ----------------------------------------------------------------------
-    echo. You do not have a powershell version greater than 4.
-    echo. This is not supported.
-    echo. Please upgrade your powershell either through downloading and installing WMF 5.1
-    echo. https://docs.microsoft.com/en-us/powershell/wmf/5.1/install-configure
-    echo. or by upgrading your OS.
-    echo. This is not Powershell Core. That is separate.
-    pause
-    exit
-)
+
+
+rem for /f "usebackq tokens=*" %%f in (`powershell -noprofile -command $PSVersionTable.PSVersion.Major`) ^
+rem do if %%f lss 4 (
+rem    echo ----------------------------------------------------------------------
+rem    echo. You do not have a powershell version greater than 4.
+rem    echo. This is not supported.
+rem    echo. Please upgrade your powershell either through downloading and installing WMF 5.1
+rem    echo. https://docs.microsoft.com/en-us/powershell/wmf/5.1/install-configure
+rem    echo. or by upgrading your OS.
+rem    echo. This is not Powershell Core. That is separate.
+rem    pause
+rem    exit
+rem )
+
+
 
 (
     where lib.exe || ^
@@ -1605,7 +1611,7 @@ set "TERM="
 type nul >>"%instdir%\msys64\home\%USERNAME%\.minttyrc"
 for /F "tokens=2 delims==" %%b in ('findstr /i TERM "%instdir%\msys64\home\%USERNAME%\.minttyrc"') do set TERM=%%b
 if not defined TERM (
-    printf %%s\n Locale=en_US Charset=UTF-8 Font=Consolas Columns=120 Rows=30 TERM=xterm-256color ^
+    printf %%s\n Locale=en_US Charset=UTF-8 TERM=xterm-256color ^
     > "%instdir%\msys64\home\%USERNAME%\.minttyrc"
     set "TERM=xterm-256color"
 )
