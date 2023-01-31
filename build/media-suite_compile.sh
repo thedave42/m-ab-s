@@ -1627,7 +1627,11 @@ if [[ $mediainfo = y ]]; then
         "$MINGW_PREFIX"/lib/cmake/CURL/CURLTargets.cmake
     _check=(libmediainfo.{a,pc})
     _deps=(lib{zen,curl}.a)
+<<<<<<< HEAD
     if do_vcs "https://github.com/g-maxime/MediaInfoLib.git#mingw" libmediainfo; then
+=======
+    if do_vcs "$SOURCE_REPO_LIBMEDIAINFO" libmediainfo; then
+>>>>>>> 961953c9 (resolve upstream conflicts)
         do_uninstall include/MediaInfo{,DLL} bin-global/libmediainfo-config \
             "${_check[@]}" libmediainfo.la lib/cmake/mediainfolib
         CFLAGS+=" $($PKG_CONFIG --cflags libzen)" \
