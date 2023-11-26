@@ -1450,8 +1450,8 @@ do_rustcinstall() {
         return
     PKG_CONFIG_ALL_STATIC=true \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
-        log "rust.cinstall" cargo cinstall \
-        --target="$CARCH"-pc-windows-gnu$target_suffix \
+        log "rust.install" "$RUSTUP_HOME/bin/cargo.exe" install \
+        --target="$CARCH"-pc-windows-gnu \
         --jobs="$cpuCount" --prefix="$LOCALDESTDIR" "$@" "${rust_extras[@]}"
     extra_script post rust
     unset rust_extras
