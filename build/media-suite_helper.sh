@@ -217,20 +217,38 @@ do_mabs_clone() {
     check_valid_vcs "$2-git"
 }
 
+vcs_ref_to_hash() (
+    vcsURL=$1 ref=$2 vcsFolder=${3:-$(basename "$vcsURL" .git)}
+    if _ref=$(git ls-remote --refs --exit-code -q -- "$vcsURL" "$ref"); then
+        cut -f1 <<< "$_ref"
+        return 0
+    fi
+    if git -C "$vcsFolder-git" rev-parse --verify -q --end-of-options "$ref" 2> /dev/null ||
+        git -C "$vcsFolder" rev-parse --verify -q --end-of-options "$ref" 2> /dev/null ||
+        git rev-parse --verify -q --end-of-options "$ref" 2> /dev/null; then
+        return 0
+    fi
+    return 1
+)
+
 # get source from VCS
 # example:
-#   do_vcs "url#branch|revision|tag|commit=NAME" "folder"
+#   do_vcs "url#branch|revision|tag|commit=NAME[ folder]" "folder"
 do_vcs() {
     local vcsURL=${1#*::} vcsFolder=$2 vcsCheck=("${_check[@]}")
     local vcsBranch=${vcsURL#*#} ref=origin/HEAD
     local deps=("${_deps[@]}") && unset _deps
     [[ $vcsBranch == "$vcsURL" ]] && unset vcsBranch
+    local vcsPotentialFolder=${vcsURL#* }
+    if [[ -z $vcsFolder ]] && [[ $vcsPotentialFolder != "$vcsURL" ]]; then
+        vcsFolder=$vcsPotentialFolder # if there was a space, use the folder name
+    fi
     vcsURL=${vcsURL%#*}
-    : "${vcsFolder:=$(basename "$vcsURL" .git)}"
+    : "${vcsFolder:=$(basename "$vcsURL" .git)}"  # else just grab from the url like git normally does
 
     if [[ -n $vcsBranch ]]; then
         ref=${vcsBranch##*=}
-        [[ ${vcsBranch%%=*}/$ref == branch/${ref%/*} ]] && ref=origin/$ref
+        unset vcsBranch
     fi
 
     cd_safe "$LOCALBUILDDIR"
@@ -241,13 +259,13 @@ do_vcs() {
 
     extra_script pre vcs
 
-    # try to see if we can "resolve" the currently provided ref, minus the origin/ part,
-    # if so, set ref to the ref on the origin, this might make it harder for people who
-    # want use multiple remotes other than origin. Converts ref=develop to ref=origin/develop
-    # ignore those that use the special tags/branches
+    # try to see if we can "resolve" the currently provided ref to a commit,
+    # excluding special tags that we will resolve later. Ignore it if it's
+    # a specific head. glslang's HEAD != their main branch somehow.
     case $ref in
     LATEST | GREATEST | *\**) ;;
-    *) git ls-remote --exit-code "$vcsURL" "${ref#origin/}" > /dev/null 2>&1 && ref=origin/${ref#origin/} ;;
+    origin/HEAD | origin/* | HEAD) ;;
+    *) ref=$(vcs_ref_to_hash "$vcsURL" "$ref" "$vcsFolder") ;;
     esac
 
     if ! check_valid_vcs "$vcsFolder-git"; then
@@ -311,6 +329,64 @@ do_vcs() {
         do_print_status prefix "$bold├$reset " "Found recompile flag" "$orange" "Recompiling"
     fi
     extra_script post vcs
+    return 0
+}
+
+# get source from VCS to a local subfolder
+# example:
+#   do_vcs_local "url#branch|revision|tag|commit=NAME" "subfolder"
+do_vcs_local() {
+    local vcsURL=${1#*::} vcsFolder=$2 vcsCheck=("${_check[@]}")
+    local vcsBranch=${vcsURL#*#} ref=origin/HEAD
+    local deps=("${_deps[@]}") && unset _deps
+    [[ $vcsBranch == "$vcsURL" ]] && unset vcsBranch
+    vcsURL=${vcsURL%#*}
+    : "${vcsFolder:=$(basename "$vcsURL" .git)}"
+
+    if [[ -n $vcsBranch ]]; then
+        ref=${vcsBranch##*=}
+        [[ ${vcsBranch%%=*}/$ref == branch/${ref%/*} ]] && ref=origin/$ref
+    fi
+
+    rm -f "$vcsFolder/custom_updated"
+
+    # try to see if we can "resolve" the currently provided ref, minus the origin/ part,
+    # if so, set ref to the ref on the origin, this might make it harder for people who
+    # want use multiple remotes other than origin. Converts ref=develop to ref=origin/develop
+    # ignore those that use the special tags/branches
+    case $ref in
+    LATEST | GREATEST | *\**) ;;
+    *) git ls-remote --exit-code "$vcsURL" "${ref#origin/}" > /dev/null 2>&1 && ref=origin/${ref#origin/} ;;
+    esac
+
+    if ! check_valid_vcs "$vcsFolder"; then
+        rm -rf "$vcsFolder"
+        rm -rf "$vcsFolder-git"
+        do_print_progress "  Running git clone for $vcsFolder"
+        if ! do_mabs_clone "$vcsURL" "$vcsFolder" "$ref"; then
+            echo "$vcsFolder git seems to be down"
+            echo "Try again later or <Enter> to continue"
+            do_prompt "if you're sure nothing depends on it."
+            # unset_extra_script
+            return
+        fi
+        mv "$vcsFolder-git" "$vcsFolder"
+        touch "$vcsFolder"/recently_{updated,checked}
+    fi
+
+    cd_safe "$vcsFolder"
+
+    vcs_set_url "$vcsURL"
+    log -q git.fetch vcs_fetch
+    oldHead=$(vcs_get_merge_base "$ref")
+    do_print_progress "  Running git update for $vcsFolder"
+    log -q git.reset vcs_reset "$ref"
+    newHead=$(vcs_get_current_head "$PWD")
+
+    vcs_clean
+
+    cd ..
+
     return 0
 }
 
@@ -1311,7 +1387,7 @@ do_meson() {
         return
     # shellcheck disable=SC2086
     PKG_CONFIG="pkgconf --keep-system-libs --keep-system-cflags" CC=${CC/ccache /}.bat CXX=${CXX/ccache /}.bat \
-        log "meson" meson "$root" --default-library=static --buildtype=release \
+        log "meson" meson setup "$root" --default-library=static --buildtype=release \
         --prefix="$LOCALDESTDIR" --backend=ninja $bindir "$@" "${meson_extras[@]}"
     extra_script post meson
     unset meson_extras
@@ -1356,6 +1432,23 @@ do_rustinstall() {
     unset rust_extras
 }
 
+do_rustcinstall() {
+    log "rust.update" "$RUSTUP_HOME/bin/cargo.exe" update
+    # use this array to pass additional parameters to cargo
+    local rust_extras=()
+    extra_script pre rust
+    [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
+        return
+    PKG_CONFIG_ALL_STATIC=true \
+        CC="ccache clang" \
+        PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
+        log "rust.cinstall" "$RUSTUP_HOME/bin/cargo.exe" cinstall \
+        --target="$CARCH"-pc-windows-gnu \
+        --jobs="$cpuCount" --prefix="$LOCALDESTDIR" "$@" "${rust_extras[@]}"
+    extra_script post rust
+    unset rust_extras
+}
+
 compilation_fail() {
     [[ -z $build32$build64 ]] && return 1
     local reason="$1"
@@ -1373,7 +1466,7 @@ compilation_fail() {
         create_diagnostic
         zip_logs
         echo "Make sure the suite is up-to-date before reporting an issue. It might've been fixed already."
-        do_prompt "Try running the build again at a later time."
+        $([[ $noMintty == y ]] && echo echo || echo do_prompt) "Try running the build again at a later time."
         exit 1
     fi
 }
@@ -1385,7 +1478,7 @@ strip_ansi() {
         local name="${txtfile%.*}" ext="${txtfile##*.}"
         [[ $txtfile != "$name" ]] &&
             newfile="$name.stripped.$ext" || newfile="$txtfile-stripped"
-        sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$txtfile" > "$newfile"
+        sed -r "s/\x1b[[(][0-9;?]*[a-zA-Z]|\x1b\][0-9];//g" "$txtfile" > "$newfile"
     done
 }
 
@@ -2078,15 +2171,12 @@ create_cmake_toolchain() {
     local toolchain_file=(
         "SET(CMAKE_RC_COMPILER_INIT windres)"
         ""
-        "LIST(APPEND CMAKE_PROGRAM_PATH $(cygpath -m "$LOCALDESTDIR/bin"))"
-        "SET(CMAKE_FIND_ROOT_PATH $_win_paths)"
-        "SET(CMAKE_PREFIX_PATH $_win_paths)"
+        "LIST(APPEND CMAKE_PROGRAM_PATH \"$(cygpath -m "$LOCALDESTDIR/bin")\")"
+        "SET(CMAKE_PREFIX_PATH \"$_win_paths\")"
+        "SET(CMAKE_FIND_ROOT_PATH \"$_win_paths\")"
         "SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)"
         "SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)"
         "SET(CMAKE_BUILD_TYPE Release)"
-        "LIST(APPEND CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES $mingw_path)"
-        "LIST(APPEND CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES $mingw_path)"
-        "SET(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)"
     )
 
     mkdir -p "$LOCALDESTDIR"/etc > /dev/null 2>&1

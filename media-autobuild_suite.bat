@@ -109,10 +109,10 @@ if not exist %build% mkdir %build%
 
 set msyspackages=asciidoc autoconf-wrapper automake-wrapper autogen base bison diffstat dos2unix filesystem help2man ^
 intltool libtool patch python xmlto make zip unzip git subversion wget p7zip man-db ^
-gperf winpty texinfo gyp-git doxygen autoconf-archive itstool ruby mintty flex msys2-runtime
+gperf winpty texinfo gyp doxygen autoconf-archive itstool ruby mintty flex msys2-runtime
 
 set mingwpackages=cmake dlfcn libpng gcc nasm pcre tools-git yasm ninja pkgconf meson ccache jq ^
-clang
+clang binutils
 
 :: built-ins
 set ffmpeg_options_builtin=--disable-autodetect amf bzlib cuda cuvid d3d11va dxva2 ^
@@ -154,8 +154,8 @@ set mpv_options_full=dvdnav cdda #egl-angle #html-build ^
 set iniOptions=arch license2 vpx2 x2643 x2652 other265 flac fdkaac mediainfo ^
 soxB ffmpegB2 ffmpegUpdate ffmpegChoice mp4box rtmpdump mplayer2 mpv cores deleteSource ^
 strip pack logging bmx standalone updateSuite aom faac exhale ffmbc curl cyanrip2 ^
-rav1e ripgrep dav1d libavif vvc uvg266 jq dssim avs2 timeStamp noMintty ccache ^
-svthevc svtav1 svtvp9 xvc jo vlc CC jpegxl vvenc vvdec ffmpegPath
+rav1e ripgrep dav1d libavif vvc uvg266 jq dssim avs2 dovitool hdr10plustool ^
+timeStamp noMintty ccache svthevc svtav1 svtvp9 xvc jo vlc CC jpegxl vvenc vvdec ffmpegPath
 @rem re-add autouploadlogs if we find some way to upload to github directly instead
 
 set deleteIni=0
@@ -1270,6 +1270,46 @@ if %buildavs2%==2 set "avs2=n"
 if %buildavs2% GTR 2 GOTO avs2
 if %deleteINI%==1 echo.avs2=^%buildavs2%>>%ini%
 
+:dovitool
+if [0]==[%dovitoolINI%] (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Build dovi_tool (CLI tool for working with Dolby Vision^)?
+    echo. 1 = Yes
+    echo. 2 = No
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P builddovitool="Build dovi_tool: "
+) else set builddovitool=%dovitoolINI%
+
+if "%builddovitool%"=="" GOTO dovitool
+if %builddovitool%==1 set "dovitool=y"
+if %builddovitool%==2 set "dovitool=n"
+if %builddovitool% GTR 2 GOTO dovitool
+if %deleteINI%==1 echo.dovitool=^%builddovitool%>>%ini%
+
+:hdr10plustool
+if [0]==[%hdr10plustoolINI%] (
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    echo.
+    echo. Build hdr10plus_tool (CLI utility to work with HDR10+ in HEVC files^)?
+    echo. 1 = Yes
+    echo. 2 = No
+    echo.
+    echo -------------------------------------------------------------------------------
+    echo -------------------------------------------------------------------------------
+    set /P buildhdr10plustool="Build hdr10plus_tool: "
+) else set buildhdr10plustool=%hdr10plustoolINI%
+
+if "%buildhdr10plustool%"=="" GOTO hdr10plustool
+if %buildhdr10plustool%==1 set "hdr10plustool=y"
+if %buildhdr10plustool%==2 set "hdr10plustool=n"
+if %buildhdr10plustool% GTR 2 GOTO hdr10plustool
+if %deleteINI%==1 echo.hdr10plustool=^%buildhdr10plustool%>>%ini%
+
 :CC
 if [0]==[%CCINI%] (
     echo -------------------------------------------------------------------------------
@@ -1775,21 +1815,16 @@ findstr hkps://keys.openpgp.org "%instdir%\msys64\home\%USERNAME%\.gnupg\gpg.con
 rem loginProfile
 if exist %instdir%\msys64\etc\profile.pacnew ^
     move /y %instdir%\msys64\etc\profile.pacnew %instdir%\msys64\etc\profile
-findstr /C:"profile2.local" %instdir%\msys64\etc\profile.d\Zab-suite.sh >nul 2>&1 || (
-    echo.if [[ -z "$MSYSTEM" ^|^| "$MSYSTEM" = MINGW64 ]]; then
-    echo.   source /local64/etc/profile2.local
-    echo.elif [[ -z "$MSYSTEM" ^|^| "$MSYSTEM" = MINGW32 ]]; then
-    echo.   source /local32/etc/profile2.local
-    echo.fi
-)>%instdir%\msys64\etc\profile.d\Zab-suite.sh
-
-
-findstr /C:"LANG" %instdir%\msys64\etc\profile.d\Zab-suite.sh >nul 2>&1 || (
+(
+    echo.case "$MSYSTEM" in
+    echo.*32^) source /local32/etc/profile2.local ;;
+    echo.*64^) source /local64/etc/profile2.local ;;
+    echo.esac
     echo.case $- in
     echo.*i*^) ;;
     echo.*^) export LANG=en_US.UTF-8 ;;
     echo.esac
-)>>%instdir%\msys64\etc\profile.d\Zab-suite.sh
+)>%instdir%\msys64\etc\profile.d\Zab-suite.sh
 
 rem compileLocals
 cd %instdir%
@@ -1808,9 +1843,10 @@ set compileArgs=--cpuCount=%cpuCount% --build32=%build32% --build64=%build64% ^
 --logging=%logging% --bmx=%bmx% --standalone=%standalone% --aom=%aom% --faac=%faac% --exhale=%exhale% ^
 --ffmbc=%ffmbc% --curl=%curl% --cyanrip=%cyanrip% --rav1e=%rav1e% --ripgrep=%ripgrep% --dav1d=%dav1d% ^
 --vvc=%vvc% --uvg266=%uvg266% --vvenc=%vvenc% --vvdec=%vvdec% --jq=%jq% --jo=%jo% --dssim=%dssim% ^
---avs2=%avs2% --timeStamp=%timeStamp% --noMintty=%noMintty% --ccache=%ccache% --svthevc=%svthevc% ^
+--avs2=%avs2% --dovitool=%dovitool% --hdr10plustool=%hdr10plustool% --timeStamp=%timeStamp% ^
+--noMintty=%noMintty% --ccache=%ccache% --svthevc=%svthevc% ^
 --svtav1=%svtav1% --svtvp9=%svtvp9% --xvc=%xvc% --vlc=%vlc% --libavif=%libavif% --jpegxl=%jpegxl% ^
---ffmpegPath=%ffmpegPath%
+--ffmpegPath=%ffmpegPath% --exitearly=%MABS_EXIT_EARLY%
     @REM --autouploadlogs=%autouploadlogs%
     set "noMintty=%noMintty%"
     if %build64%==yes ( set "MSYSTEM=MINGW64" ) else set "MSYSTEM=MINGW32"
@@ -1853,14 +1889,14 @@ goto :EOF
 
 :writeProfile
 (
+    echo.#!/usr/bin/bash
     echo.MSYSTEM=MINGW%1
     echo.source /etc/msystem
     echo.
     echo.# package build directory
-    echo.LOCALBUILDDIR=/build
+    echo.export LOCALBUILDDIR='/build'
     echo.# package installation prefix
-    echo.LOCALDESTDIR=/local%1
-    echo.export LOCALBUILDDIR LOCALDESTDIR
+    echo.export LOCALDESTDIR='/local%1'
     echo.
     echo.bits='%1bit'
     echo.
@@ -1876,9 +1912,10 @@ goto :EOF
     )
     echo.
     echo.CARCH="${MINGW_CHOST%%%%-*}"
-    echo.CPATH="$(cygpath -pm $LOCALDESTDIR/include:$MINGW_PREFIX/include)"
+    echo.C_INCLUDE_PATH="$(cygpath -pm $LOCALDESTDIR/include:$MINGW_PREFIX/include)"
+    echo.CPLUS_INCLUDE_PATH="$(cygpath -pm $LOCALDESTDIR/include)"
     echo.LIBRARY_PATH="$(cygpath -pm $LOCALDESTDIR/lib:$MINGW_PREFIX/lib)"
-    echo.export CPATH LIBRARY_PATH
+    echo.export C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH
     echo.
     echo.MANPATH="${LOCALDESTDIR}/share/man:${MINGW_PREFIX}/share/man:/usr/share/man"
     echo.INFOPATH="${LOCALDESTDIR}/share/info:${MINGW_PREFIX}/share/info:/usr/share/info"
@@ -1887,19 +1924,27 @@ goto :EOF
     echo.ACLOCAL_PATH="${LOCALDESTDIR}/share/aclocal:${MINGW_PREFIX}/share/aclocal:/usr/share/aclocal"
     echo.PKG_CONFIG="${MINGW_PREFIX}/bin/pkgconf --keep-system-libs --keep-system-cflags --static"
     echo.PKG_CONFIG_PATH="${LOCALDESTDIR}/lib/pkgconfig:${MINGW_PREFIX}/lib/pkgconfig"
-    echo.CPPFLAGS="-D_FORTIFY_SOURCE=0 -D__USE_MINGW_ANSI_STDIO=1"
-    if %CC%==clang (
-        echo.CFLAGS="-mtune=generic -O2 -pipe"
-    ) else (
-        echo.CFLAGS="-mthreads -mtune=generic -O2 -pipe"
-    )
-    echo.CXXFLAGS="${CFLAGS}"
-    if %CC%==clang (
-        echo.LDFLAGS="-pipe -static-libgcc --start-no-unused-arguments -static-libstdc++ --end-no-unused-arguments"
-    ) else (
-        echo.LDFLAGS="-pipe -static-libgcc -static-libstdc++"
-    )
-    echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CPPFLAGS CFLAGS CXXFLAGS LDFLAGS MSYSTEM
+    echo.
+    echo.CFLAGS="-D_FORTIFY_SOURCE=2 -fstack-protector-strong" # security related flags
+    echo.CFLAGS+=" -mtune=generic -O2 -pipe" # performance related flags
+    echo.CFLAGS+=" -D__USE_MINGW_ANSI_STDIO=1" # mingw-w64 specific flags for c99 printf
+    echo.CXXFLAGS="${CFLAGS}" # copy CFLAGS to CXXFLAGS
+    echo.LDFLAGS="${CFLAGS} -static-libgcc" # copy CFLAGS to LDFLAGS
+    echo.case "$CC" in
+    echo.*clang^)
+    echo.    # clang complains about using static-libstdc++ with C files.
+    echo.    LDFLAGS+=" --start-no-unused-arguments -static-libstdc++ --end-no-unused-arguments"
+    echo.    CFLAGS+=" --start-no-unused-arguments -mthreads --end-no-unused-arguments" # mingw-w64 specific flags for windows threads.
+    echo.    CFLAGS+=" -Qunused-arguments" # clang 17.0.1 complains about -mwindows being present during compilation
+    echo.;;
+    echo.*gcc^)
+    echo.    # while gcc doesn't.
+    echo.    LDFLAGS+=" -static-libstdc++"
+    echo.    CFLAGS+=" -mthreads" # mingw-w64 specific flags for windows threads.
+    echo.;;
+    echo.esac
+    echo.# CPPFLAGS used to be here, but cmake ignores it, so it's not as useful.
+    echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CFLAGS CXXFLAGS LDFLAGS
     echo.
     echo.export CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/cargo"
     echo.export CCACHE_DIR="${LOCALBUILDDIR}/cache"
