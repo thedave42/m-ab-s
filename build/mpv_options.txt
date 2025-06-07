@@ -1,37 +1,34 @@
 # Lines starting with this character are ignored
 
-# Built-in options, use --disable- to disable them
-#--enable-cplayer
-#--enable-manpage-build
-#--enable-lua
-#--enable-javascript
-#--enable-libbluray
-#--enable-uchardet
-#--enable-rubberband
-#--enable-lcms2
-#--enable-libarchive
-#--enable-libavdevice
-#--enable-shaderc
-#--enable-spirv-cross
-#--enable-d3d11
-#--enable-jpeg
-#--enable-vapoursynth
-#--enable-vulkan
-#--enable-libplacebo
+# Built-in options, use =disabled to disable them
+#-Dcplayer=true
+#-Dmanpage-build=enabled
+#-Dlua=enabled
+#-Djavascript=enabled
+#-Dlibbluray=enabled
+#-Duchardet=enabled
+#-Drubberband=enabled
+#-Dlcms2=enabled
+#-Dlibarchive=enabled
+#-Dlibavdevice=enabled
+#-Dshaderc=enabled
+#-Dspirv-cross=enabled
+#-Dd3d11=enabled
+#-Djpeg=enabled
+#-Dvapoursynth=enabled
+#-Dvulkan=enabled
 
 # Common options or overriden defaults
---disable-debug-build
---lua=luajit
+-Dlua=luajit
 
 # Full
---enable-dvdnav
---enable-cdda
-#--enable-egl-angle
-#--enable-html-build
-#--enable-pdf-build
---enable-libmpv-shared
---enable-openal
---enable-sdl2
-#--enable-sdl2-gamepad
-#--enable-sdl2-audio
-#--enable-sdl2-video
+-Ddvdnav=enabled
+-Dcdda=enabled
+#-Degl-angle=enabled
+#-Dhtml-build=enabled
+#-Dpdf-build=enabled
+-Dopenal=enabled
+-Dsdl2=enabled
+#-Dsdl2-gamepad=enabled
+#-Dsdl2-audio=enabled
+#-Dsdl2-video=enabled
